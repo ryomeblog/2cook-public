@@ -1,0 +1,8 @@
+No.,論理カラム名,物理カラム名,KEY,table,NN,UNSIGNED,データ型(サイズ),初期値,補足,検索対象,最小値,最大値,,文字種,型,変数名
+1,ルーティンID,routine_id,PK,,〇,,VARCHAR,,ID体系:routine00000001～routine99999999,〇,15,15,,半角英数字,String,routineId
+2,ルーティン名,routine_name,,,〇,,VARCHAR,,,〇,1,200,,半角 / 全角,String,routineName
+3,ルーティン最大日数,routine_maxday,,,〇,,SMALLINT,7,１～７日,,1,7,,半角 / 全角,String,routineMaxday
+4,ユーザID,user_id,FK,routine_mst,〇,,VARCHAR,,ID体系:user00000001~user99999999,〇,12,12,,半角英数字,String,userId
+5,更新日時,update_datetime,,,〇,,TIMESTAMP,CURRENT_TIMESTAMP,"レコードが更新された日時を格納
+YYYY-MM-DD hh:mm:ss",,,,,日付,Date,updateDatetime
+6,バージョン,version,,,〇,〇,SMALLINT,0,,,,,,半角数字,Short,version

@@ -1,0 +1,447 @@
+﻿# A5:ER FORMAT:15
+# A5:ER ENCODING:UTF8
+# A5:ER Mk-1 Copyright © 2007 m.matsubara
+# A5:SQL Mk-2 Version 2.16.2 Copyright © 1997 - 2021 m.matsubara
+#  https://a5m2.mmatsubara.com
+
+[Manager]
+ProjectName=
+Author=
+MaxEntityRowShow=1000
+ReadOnlyRecommend=0
+Page=Main
+PageInfo="Main",7,"A3Landscape",$FFFFFF
+LogicalView=1
+DecodeDomain=0
+ViewModePageIndividually=1
+ViewMode=7
+ViewFormat=0
+UseNondependenceDashLine=0
+FontName=Tahoma
+FontSize=6
+PaperSize=A4Landscape
+HeaderLeft=
+HeaderCenter=
+HeaderRight=
+FooterLeft=
+FooterCenter=
+FooterRight=
+ShowPageoutRelation=1
+DefaultPkName=%0:s_PKC
+DefaultPkIndexName=%0:s_PKI
+DefaultIndexName=%0:s_IX%1:d
+DefaultFkName=%0:s_FK%1:d
+SqlSeparator=0
+UpperCaseKeyword=0
+ShowTag=1
+ShowCommonAttributes=0
+
+[Relation]
+Entity1=cook_mst
+Entity2=routine_eat_tbl
+RelationType1=1
+RelationType2=3
+Fields1=cook_id
+Fields2=cook_id
+Cardinarity1=
+Cardinarity2=
+Position="MAIN",0,6348,9452,6363,R,R,""
+Dependence=0
+Caption=
+PName=
+LineMode=0
+Bar1=635
+Bar2=945
+Bar3=636
+TermPos1=R
+TermPos2=R
+ZOrder=5
+
+[Relation]
+Entity1=cook_user_mst
+Entity2=food_mst
+RelationType1=1
+RelationType2=3
+Fields1=user_id
+Fields2=user_id
+Cardinarity1=
+Cardinarity2=
+Position="MAIN",0,5259,5059,2991,R,R,""
+Dependence=0
+Caption=
+PName=
+LineMode=0
+Bar1=526
+Bar2=506
+Bar3=299
+TermPos1=R
+TermPos2=R
+ZOrder=6
+
+[Relation]
+Entity1=cook_user_mst
+Entity2=cook_mst
+RelationType1=1
+RelationType2=3
+Fields1=user_id
+Fields2=user_id
+Cardinarity1=
+Cardinarity2=
+Position="MAIN",0,8558,7142,946,R,R,""
+Dependence=0
+Caption=
+PName=
+LineMode=0
+Bar1=856
+Bar2=714
+Bar3=95
+TermPos1=R
+TermPos2=R
+ZOrder=7
+
+[Relation]
+Entity1=cook_user_mst
+Entity2=cook_food_tbl
+RelationType1=1
+RelationType2=3
+Fields1=user_id
+Fields2=user_id
+Cardinarity1=
+Cardinarity2=
+Position="MAIN",0,2828,6235,1138,R,R,""
+Dependence=0
+Caption=
+PName=
+LineMode=0
+Bar1=283
+Bar2=624
+Bar3=114
+TermPos1=R
+TermPos2=R
+ZOrder=8
+
+[Relation]
+Entity1=routine_mst
+Entity2=routine_eat_tbl
+RelationType1=1
+RelationType2=3
+Fields1=routine_id
+Fields2=routine_id
+Cardinarity1=
+Cardinarity2=
+Position="MAIN",0,1091,5773,818,R,R,""
+Dependence=0
+Caption=
+PName=
+LineMode=0
+Bar1=109
+Bar2=577
+Bar3=82
+TermPos1=R
+TermPos2=R
+ZOrder=4
+
+[Relation]
+Entity1=cook_user_mst
+Entity2=schedule_tbl
+RelationType1=1
+RelationType2=3
+Fields1=user_id
+Fields2=user_id
+Cardinarity1=
+Cardinarity2=
+Position="MAIN",0,2124,4714,496,R,R,""
+Dependence=0
+Caption=
+PName=
+LineMode=0
+Bar1=212
+Bar2=471
+Bar3=50
+TermPos1=R
+TermPos2=R
+ZOrder=0
+
+[Relation]
+Entity1=cook_mst
+Entity2=schedule_tbl
+RelationType1=1
+RelationType2=3
+Fields1=cook_id
+Fields2=cook_id
+Cardinarity1=
+Cardinarity2=
+Position="MAIN",0,3454,6217,8807,R,R,""
+Dependence=0
+Caption=
+PName=
+LineMode=0
+Bar1=345
+Bar2=622
+Bar3=881
+TermPos1=R
+TermPos2=R
+ZOrder=1
+
+[Relation]
+Entity1=cook_user_mst
+Entity2=routine_mst
+RelationType1=1
+RelationType2=3
+Fields1=user_id
+Fields2=user_id
+Cardinarity1=
+Cardinarity2=
+Position="MAIN",0,883,4540,866,R,R,""
+Dependence=0
+Caption=
+PName=
+LineMode=0
+Bar1=88
+Bar2=454
+Bar3=87
+TermPos1=R
+TermPos2=R
+ZOrder=2
+
+[Relation]
+Entity1=cook_user_mst
+Entity2=routine_eat_tbl
+RelationType1=1
+RelationType2=3
+Fields1=user_id
+Fields2=user_id
+Cardinarity1=
+Cardinarity2=
+Position="MAIN",0,664,4758,3542,R,R,""
+Dependence=0
+Caption=
+PName=
+LineMode=0
+Bar1=66
+Bar2=476
+Bar3=354
+TermPos1=R
+TermPos2=R
+ZOrder=3
+
+[Relation]
+Entity1=food_mst
+Entity2=cook_food_tbl
+RelationType1=1
+RelationType2=3
+Fields1=food_id
+Fields2=food_id
+Cardinarity1=
+Cardinarity2=
+Position="MAIN",0,946,5780,1835,R,R,""
+Dependence=0
+Caption=
+PName=
+LineMode=0
+Bar1=95
+Bar2=578
+Bar3=184
+TermPos1=R
+TermPos2=R
+ZOrder=9
+
+[Entity]
+PName=cook_user_mst
+LName=ユーザマスタ
+Comment=
+TableOption=
+Page=MAIN
+Left=800
+Top=400
+Field="ユーザID","user_id","character varying(12)","NOT NULL",0,"","",$FFFFFFFF,""
+Field="パスワード","password","character varying","NOT NULL",,"","",$FFFFFFFF,""
+Field="ユーザ名","user_name","character varying(100)","NOT NULL",,"","",$FFFFFFFF,""
+Field="秘密の質問ID","secret_id","character varying(7)","NOT NULL",,"","",$FFFFFFFF,""
+Field="秘密の答え","secret_answer","character varying(200)","NOT NULL",,"","",$FFFFFFFF,""
+Field="パスワード間違え回数","error_password","smallint",,,"","",$FFFFFFFF,""
+Field="アカウントロック","lock","boolean",,,"","",$FFFFFFFF,""
+Field="権限","authority","smallint","NOT NULL",,"0","",$FFFFFFFF,""
+Field="更新日時","update_datetime","date","NOT NULL",,"CURRENT_TIMESTAMP","",$FFFFFFFF,""
+Field="バージョン","version","smallint","NOT NULL",,"0","",$FFFFFFFF,""
+EffectMode=None
+Color=$000000
+BkColor=$FFFFFF
+Position="MAIN",800,400
+ZOrder=15
+
+[Entity]
+PName=cook_mst
+LName=料理マスタ
+Comment=
+TableOption=
+Page=MAIN
+Left=100
+Top=900
+Field="料理ID","cook_id","character varying(12)","NOT NULL",0,"","",$FFFFFFFF,""
+Field="料理名","cook_name","character varying(200)","NOT NULL",,"","",$FFFFFFFF,""
+Field="手順","cook_process","character varying(4000)","NOT NULL",,"","",$FFFFFFFF,""
+Field="金額","cook_price","bigint","NOT NULL",,"0","",$FFFFFFFF,""
+Field="動画URL","cook_movie","character varying(4000)",,,"","",$FFFFFFFF,""
+Field="その他URL","cook_url","character varying(4000)",,,"","",$FFFFFFFF,""
+Field="ユーザID","user_id","character varying(12)","NOT NULL",,"","",$FFFFFFFF,""
+Field="更新日時","update_datetime","date","NOT NULL",,"CURRENT_TIMESTAMP","",$FFFFFFFF,""
+Field="バージョン","version","smallint","NOT NULL",,"0","",$FFFFFFFF,""
+EffectMode=None
+Color=$000000
+BkColor=$FFFFFF
+Position="MAIN",100,900
+ZOrder=16
+
+[Entity]
+PName=cook_food_tbl
+LName=料理食材テーブル
+Comment=
+TableOption=
+Page=MAIN
+Left=100
+Top=100
+Field="料理食材ID","cook_food_id","character varying(12)","NOT NULL",0,"","",$FFFFFFFF,""
+Field="料理ID","cook_id","character varying(12)","NOT NULL",,"","",$FFFFFFFF,""
+Field="食材ID","food_id","character varying(12)","NOT NULL",,"","",$FFFFFFFF,""
+Field="単位値","unit_value","bigint","NOT NULL",,"0","",$FFFFFFFF,""
+Field="共有フラグ","cook_flg","boolean","NOT NULL",,"","",$FFFFFFFF,""
+Field="ユーザID","user_id","character varying(12)","NOT NULL",,"","",$FFFFFFFF,""
+Field="更新日時","update_datetime","date","NOT NULL",,"CURRENT_TIMESTAMP","",$FFFFFFFF,""
+Field="バージョン","version","smallint","NOT NULL",,"0","",$FFFFFFFF,""
+EffectMode=None
+Color=$000000
+BkColor=$FFFFFF
+Position="MAIN",100,100
+ZOrder=17
+
+[Entity]
+PName=common_mst
+LName=汎用マスタ
+Comment=
+TableOption=
+Page=MAIN
+Left=1600
+Top=500
+Field="汎用マスタID","common_id","character varying(7)","NOT NULL",0,"","",$FFFFFFFF,""
+Field="汎用マスタグループ","common_group","character varying(100)","NOT NULL",,"","",$FFFFFFFF,""
+Field="汎用マスタ名","common_name","character varying(200)","NOT NULL",,"","",$FFFFFFFF,""
+Field="汎用マスタ値","common_value1","character varying(200)",,,"","",$FFFFFFFF,""
+Field="汎用マスタ値","common_value2","character varying(200)",,,"","",$FFFFFFFF,""
+Field="更新日時","update_datetime","date","NOT NULL",,"CURRENT_TIMESTAMP","",$FFFFFFFF,""
+Field="バージョン","version","smallint","NOT NULL",,"0","",$FFFFFFFF,""
+EffectMode=None
+Color=$000000
+BkColor=$FFFFFF
+Position="MAIN",1600,500
+ZOrder=18
+
+[Entity]
+PName=food_mst
+LName=食材マスタ
+Comment=
+TableOption=
+Page=MAIN
+Left=150
+Top=450
+Field="食材ID","food_id","character varying(12)","NOT NULL",0,"","",$FFFFFFFF,""
+Field="食材名","food_name","character varying(100)","NOT NULL",,"","",$FFFFFFFF,""
+Field="単位","food_unit","character varying(7)","NOT NULL",,"","",$FFFFFFFF,""
+Field="その他1","others1","character varying(100)",,,"","",$FFFFFFFF,""
+Field="その他2","others2","character varying(100)",,,"","",$FFFFFFFF,""
+Field="その他3","others3","character varying(100)",,,"","",$FFFFFFFF,""
+Field="その他4","others4","character varying(100)",,,"","",$FFFFFFFF,""
+Field="その他5","others5","character varying(100)",,,"","",$FFFFFFFF,""
+Field="ユーザID","user_id","character varying(12)","NOT NULL",,"","",$FFFFFFFF,""
+Field="更新日時","update_datetime","date","NOT NULL",,"CURRENT_TIMESTAMP","",$FFFFFFFF,""
+Field="バージョン","version","smallint","NOT NULL",,"0","",$FFFFFFFF,""
+EffectMode=None
+Color=$000000
+BkColor=$FFFFFF
+Position="MAIN",150,450
+ZOrder=14
+
+[Relation]
+Entity1=cook_mst
+Entity2=cook_food_tbl
+RelationType1=1
+RelationType2=3
+Fields1=cook_id
+Fields2=cook_id
+Cardinarity1=
+Cardinarity2=
+Position="MAIN",0,510,8700,503,R,R,""
+Dependence=0
+Caption=
+PName=
+LineMode=0
+Bar1=51
+Bar2=870
+Bar3=50
+TermPos1=R
+TermPos2=R
+ZOrder=10
+
+[Entity]
+PName=schedule_tbl
+LName=スケジュールテーブル
+Comment=
+TableOption=
+Page=MAIN
+Left=900
+Top=800
+Field="スケジュールID","schedule_id","character varying(18)","NOT NULL",0,"","",$FFFFFFFF,""
+Field="ルーティンID","routine_id","character varying(15)","NOT NULL",,"","",$FFFFFFFF,""
+Field="日付","schedule_date","date","NOT NULL",,"","",$FFFFFFFF,""
+Field="時間","schedule_time","smallint","NOT NULL",,"","",$FFFFFFFF,""
+Field="料理ID","cook_id","character varying(12)","NOT NULL",,"","",$FFFFFFFF,""
+Field="ユーザID","user_id","character varying(12)","NOT NULL",,"","",$FFFFFFFF,""
+Field="更新日時","update_datetime","date","NOT NULL",,"CURRENT_TIMESTAMP","",$FFFFFFFF,""
+Field="バージョン","version","smallint","NOT NULL",,"0","",$FFFFFFFF,""
+EffectMode=None
+Color=$000000
+BkColor=$FFFFFF
+Position="MAIN",900,800
+ZOrder=11
+
+[Entity]
+PName=routine_mst
+LName=ルーティンマスタ
+Comment=
+TableOption=
+Page=MAIN
+Left=800
+Top=100
+Field="ルーティンID","routine_id","character varying(15)","NOT NULL",0,"","",$FFFFFFFF,""
+Field="ルーティン名","routine_name","character varying(200)","NOT NULL",,"","",$FFFFFFFF,""
+Field="ルーティン最大日数","routine_maxday","smallint","NOT NULL",,"0","",$FFFFFFFF,""
+Field="ユーザID","user_id","character varying(12)","NOT NULL",,"","",$FFFFFFFF,""
+Field="更新日時","update_datetime","date","NOT NULL",,"CURRENT_TIMESTAMP","",$FFFFFFFF,""
+Field="バージョン","version","smallint","NOT NULL",,"0","",$FFFFFFFF,""
+EffectMode=None
+Color=$000000
+BkColor=$FFFFFF
+Position="MAIN",800,100
+ZOrder=12
+
+[Entity]
+PName=routine_eat_tbl
+LName=ルーティン食事テーブル
+Comment=
+TableOption=
+Page=MAIN
+Left=1600
+Top=100
+Field="ルーティン食事ID","routine_eat_id","character varying(20)","NOT NULL",0,"","",$FFFFFFFF,""
+Field="ルーティンID","routine_id","character varying(15)","NOT NULL",,"","",$FFFFFFFF,""
+Field="料理ID","cook_id","character varying(12)","NOT NULL",,"","",$FFFFFFFF,""
+Field="ルーティン日数","routine_day","smallint","NOT NULL",,"","",$FFFFFFFF,""
+Field="ルーティン時間","routine_time","smallint","NOT NULL",,"","",$FFFFFFFF,""
+Field="ユーザID","user_id","character varying(12)","NOT NULL",,"","",$FFFFFFFF,""
+Field="更新日時","update_datetime","date","NOT NULL",,"CURRENT_TIMESTAMP","",$FFFFFFFF,""
+Field="バージョン","version","smallint","NOT NULL",,"0","",$FFFFFFFF,""
+EffectMode=None
+Color=$000000
+BkColor=$FFFFFF
+Position="MAIN",1600,100
+ZOrder=13

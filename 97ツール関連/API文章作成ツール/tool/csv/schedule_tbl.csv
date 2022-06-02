@@ -1,0 +1,9 @@
+No.,論理カラム名,物理カラム名,KEY,table,NN,UNSIGNED,データ型(サイズ),初期値,補足,検索対象,最小値,最大値,,文字種,型,変数名
+1,スケジュールID,schedule_id,PK,,〇,,VARCHAR,,ID体系:schedule0000000001～schedule9999999999,〇,18,18,,半角英数字,String,scheduleId
+2,日付,schedule_date,,,〇,,DATE,,yyyy / MM / dd,〇,10,10,,日付,LocalDate,scheduleDate
+3,時間,schedule_time,,,〇,,SMALLINT,,0：朝、1：昼、2：夜,〇,0,2,,日付,LocalDate,scheduleTime
+4,料理ID,cook_id,FK,cook_mst,〇,,VARCHAR,,ID体系:cook00000001～cook99999999,〇,12,12,,半角英数字,String,cookId
+5,ユーザID,user_id,FK,cook_user_mst,〇,,VARCHAR,,ID体系:user00000001~user99999999,〇,12,12,,半角英数字,String,userId
+6,更新日時,update_datetime,,,〇,,TIMESTAMP,CURRENT_TIMESTAMP,"レコードが更新された日時を格納
+YYYY-MM-DD hh:mm:ss",,,,,日付,Date,updateDatetime
+7,バージョン,version,,,〇,〇,SMALLINT,0,,,,,,半角数字,Short,version

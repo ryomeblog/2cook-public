@@ -1,0 +1,2610 @@
+openapi: 3.0.0
+info:
+  title: 2Cook
+  version: '1.0'
+  description: |-
+    2Cookプロジェクト
+
+    # API共通仕様
+    ## 排他制御
+    * 排他制御方式は、楽観排他とする。
+    * 排他制御はDB更新時に毎回行う。
+    * 楽観排他制御は以下のように行う。
+      1. 取得系API実行時  
+         DBに格納されているバージョン情報を返却する。
+      2. 更新API実行時  
+         取得系API実行時に返却したバージョン情報をリクエストパラメータに含める。  
+         DB更新条件にリクエストパラメータで渡されたバージョン情報を含め、  
+         バージョン情報が一致する場合のみ更新が行われるようにする。  
+         更新時、バージョンを1インクリメントする。  
+         キーが見つからなかったことによるエラーとバージョン不一致によるエラーを区別する。
+    ## 入力パラメータ／バリデーションチェック
+      * リクエストはStringで受け取り、必要に応じて型変換を行う。
+      * 値がnullの場合は必須項目チェック以外のバリデーションチェックを行わない。
+      * バリデーション結果がNGだった場合、HTTPステータスコード400、結果コード101を返却する。
+        * 詳細な情報についてはレスポンスボディの'optional.badParameterList'に格納する。
+          
+          | パラメータ | 説明                                               |
+          | ---------- | -------------------------------------------------- |
+          | name       | パラメータ名                                       |
+          | value      | 入力値                                             |
+          | message    | エラーメッセージ(Springが生成したメッセージを格納) |
+
+    ## 更新系APIのDB更新条件
+      1. リクエストパラメータなし または 値がnullの場合  
+         * DB更新なし
+      2. その他の値の場合  
+         * リクエストパラメータでDBを更新する。
+    ## 結果コード一覧
+
+    | 結果コード | 説明                                           |
+    | ---------- | ---------------------------------------------- |
+    | 000        | 正常                                           |
+    | 101        | リクエストパラメータ不正                       |
+    | 102        | ユーザIDまたはパスワードが不正                 |
+    | 103        | 認証情報不正(ユーザ権限がない)                 |
+    | 104        | ID作成に失敗                                   |
+    | 105        | 取得、更新、削除対象のデータが存在しない       |
+    | 106        | 既に同一キーが存在するデータを作成しようとした |
+    | 107        | 排他制御が行われた                             |
+    | 108        | 外部との通信に失敗した                         |
+    | 109        | 不正なDB処理を検知した                         |
+servers:
+  - url: 'http://localhost:5000'
+    description: APサーバ
+  - url: 'http://localhost:3100'
+    description: MOCKサーバ
+tags:
+  - name: 認証機能（login）
+    description: 認証機能を担うAPI
+  - name: ユーザ管理機能（account）
+    description: ユーザ管理機能を担うAPI
+  - name: 料理管理機能（cook）
+    description: 料理管理機能を担うAPI
+  - name: 食材管理機能（food）
+    description: 食材管理機能を担うAPI
+  - name: ルーティン管理機能（routine）
+    description: ルーティン管理機能を担うAPI
+  - name: スケジュール管理機能（schedule）
+    description: スケジュール管理機能を担うAPI
+paths:
+  /user/login:
+    post:
+      summary: API001 - ログイン機能
+      description: |
+        ## 概要
+        SpringSecurityの認証機能を利用してログイン処理を行う。
+
+        ## 処理詳細
+        1. リクエストパラメータチェックを行う。
+
+           | No | パラメータ | 説明       | 型     | 文字種     | 必須 | デフォルト値 | 最小文字数 | 最大文字数 | パターン |
+           |----|------------|------------|--------|------------|------|--------------|------------|------------|----------|
+           | 1  | userId     | ユーザID    | String | 半角英数字 | ○    | -            | 12          | 12         | -        |
+           | 2  | password   | パスワード | String | 半角英数字   | ○    | -            | 1          | 20         | -        |
+
+        2. 「cook_user_mst」テーブルからリクエストパラメータのユーザIDを検索条件に該当レコードを取得する。
+           * 「cook_user_mst」テーブルに該当レコードがなかった場合は404エラーとする。
+           * 該当レコードのアカウントロックがTrueの場合は403エラーとする。
+
+        3. リクエストパラメータのパスワードと2で取得したレコードのパスワードが一致するか確認する。
+           * 一致の場合、以下の通りリクエストパラメータのユーザIDと「cook_user_mst」テーブルのユーザIDが一致するレコードを更新する。
+
+           | 論理名               | 物理名          | 導出元                               |
+           | -------------------- | --------------- | ------------------------------------ |
+           | ユーザID             | user_id         | 更新しない                           |
+           | アカウントロック     | lock            | 0                                    |
+           | 更新日時             | update_datetime | 現在日時                             |
+           | バージョン           | version         | リクエストパラメータのバージョン + 1 |
+
+           * 不一致の場合、以下の処理をする。
+              - 2で取得したログイン失敗回数をカウントアップする。
+              - 2で取得したログイン失敗回数が上限を超えた場合、2で取得したログイン失敗回数を0にして、2で取得したアカウントロックをTrueにする。
+              - 以下の通りリクエストパラメータのユーザIDと「cook_user_mst」テーブルのユーザIDが一致するレコードを更新する。
+
+           | 論理名               | 物理名          | 導出元                               |
+           | -------------------- | --------------- | ------------------------------------ |
+           | ユーザID             | user_id         | 更新しない                           |
+           | パスワード間違え回数 | error_password  | 2で取得したログイン失敗回数          |
+           | アカウントロック     | lock            | 2で取得したアカウントロック          |
+           | 更新日時             | update_datetime | 現在日時                             |
+           | バージョン           | version         | リクエストパラメータのバージョン + 1 |
+
+        4. SpringSecurityの認証処理を行う。
+        5. 2で取得した「cook_user_mst」テーブルのレコードをレスポンスに設定し、返却する。
+      requestBody:
+        content:
+          application/json:
+            schema:
+              description: ''
+              type: object
+              properties:
+                userId:
+                  type: string
+                  minLength: 12
+                  maxLength: 12
+                password:
+                  type: string
+                  minLength: 1
+                  maxLength: 20
+              required:
+                - userId
+                - password
+            examples:
+              example:
+                value:
+                  userId: user00000001
+                  password: string
+        description: ''
+      responses:
+        '200':
+          description: 正常
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  resultCode:
+                    type: string
+                    description: 結果コード
+                    enum:
+                      - '000'
+                  optional:
+                    $ref: '#/components/schemas/User'
+              examples:
+                example:
+                  value:
+                    resultCode: '000'
+                    optional:
+                      userId: user0000001
+                      userName: example
+                      author: ユーザ
+                      version: 0
+          headers:
+            JSESSIONID:
+              schema:
+                type: string
+              description: セッションID
+        '400':
+          $ref: '#/components/responses/400'
+        '403':
+          $ref: '#/components/responses/403_login'
+      operationId: postLogin
+      parameters:
+        - schema:
+            type: string
+          in: header
+          name: Content-Type
+          description: application/json
+      x-internal: false
+      tags:
+        - 認証機能（login）
+    parameters: []
+  /user/logout:
+    post:
+      summary: API002 - ログアウト機能
+      description: |-
+        ## 概要
+        SpringSecurityの認証機能を利用してログアウト処理を行う。
+
+        ## 処理詳細
+        1. SpringSecurityのログアウト処理を行う。
+        2. レスポンスを返却する。
+      responses:
+        '200':
+          $ref: '#/components/responses/200'
+      operationId: postLogout
+      security:
+        - Cookie: []
+      tags:
+        - 認証機能（login）
+    parameters: []
+  /user/search:
+    get:
+      summary: API003 - ユーザ検索機能
+      description: |
+        ## 概要
+        「cook_user_mst」テーブルから検索を行う。
+        ## 処理詳細
+        1. リクエストパラメータチェックを行う。
+          
+           | パラメータ | 説明             | 型      | 文字種     | 必須 | デフォルト値 | 最小文字数(最小値) | 最大文字数(最大値) | パターン(正規表現) |
+           | ---------- | ---------------- | ------- | ---------- | ---- | ------------ | ------------------ | ------------------ | ------------------ |
+           | userId     | ユーザID         | String  | 半角英数字 |      |              | 12                 | 12                 |                    |
+           | userName   | ユーザ名         | String  | 半角英数字 | -    |              | 1                  | 100                |                    |
+           | lock       | アカウントロック | Boolean | 半角数字   |      |              | 0                  | 1                  |                    |
+           | authority  | 権限             | Byte    | 半角数字   |      | 0            |                    |                    | [01]               |
+           | orderBy    | ソート項目       | Integer | 半角数字   | -    | 1            | -                  | -                  | [1234] ※1           |
+           | ascOrDesc  | 昇順／降順       | Integer | 半角数字   | -    | 1            | -                  | -                  | [12]               |
+           | limit      | 最大取得数       | Integer | 半角数字   | -    | 100          | (1)                | (2147483647)       | -                  |
+           | offset     | オフセット       | Integer | 半角数字   | -    | 0            | (0)                | (2147483647)       | -                  |
+
+           ※1 ソート項目は、1：ユーザID, 2：ユーザ名, 3：アカウントロック, 4：権限。
+        2. 管理者ユーザか確認する。
+           * 管理者ユーザ以外の場合、403エラーとする。
+        3. 「cook_user_mst」テーブルからリクエストパラメータのユーザID, アカウントロック, 権限を検索条件に該当レコードを取得する。
+           * リクエストパラメータがnullの項目は検索条件に適用しない。
+        4. 取得した「cook_user_mst」テーブルの該当レコードをレスポンスに設定し、返却する。
+      parameters:
+        - name: userId
+          in: query
+          description: ユーザID
+          schema:
+            type: string
+            minLength: 12
+            maxLength: 12
+        - name: lock
+          in: query
+          description: アカウントロック
+          required: false
+          schema:
+            type: boolean
+            minLength: 1
+            maxLength: 20
+        - name: authority
+          in: query
+          description: 権限
+          required: false
+          schema:
+            type: integer
+            enum:
+              - 0
+              - 1
+            default: 0
+        - name: orderBy
+          in: query
+          description: ソート項目
+          schema:
+            type: integer
+            enum:
+              - 1
+              - 2
+              - 3
+            default: 1
+        - name: ascOrDesc
+          in: query
+          description: '1: 昇順, 2: 降順'
+          schema:
+            type: integer
+            enum:
+              - 1
+              - 2
+            default: 1
+        - name: limit
+          in: query
+          description: 最大取得数
+          schema:
+            type: integer
+            default: 100
+            minimum: 1
+            maximum: 2147483647
+        - name: offset
+          in: query
+          description: オフセット
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+            maximum: 2147483647
+      responses:
+        '200':
+          description: 正常
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  resultCode:
+                    description: 結果コード
+                    type: string
+                    enum:
+                      - '000'
+                  optional:
+                    $ref: '#/components/schemas/UserList'
+        '400':
+          $ref: '#/components/responses/400'
+      operationId: getAccountSearch
+      security:
+        - Cookie: []
+      tags:
+        - ユーザ管理機能（account）
+    parameters: []
+  /account:
+    get:
+      summary: API004 - ユーザ詳細検索機能
+      description: |
+        ## 概要
+        「cook_user_mst」テーブルから詳細情報を取得し、返却する。
+        ## 処理詳細 
+        1. ログイン時のユーザIDをキーに「cook_user_mst」テーブルからレコードを取得する。
+           * 「cook_user_mst」テーブルに該当レコードがなかった場合は404エラーとする。
+        2. 取得した「cook_user_mst」テーブルの詳細情報をレスポンスに設定し、返却する。
+      responses:
+        '200':
+          description: 正常
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  resultCode:
+                    type: string
+                    description: '結果コード (000: 正常)'
+                    enum:
+                      - '000'
+                  optional:
+                    $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/400'
+        '404':
+          $ref: '#/components/responses/404'
+      operationId: getAccount
+      security:
+        - Cookie: []
+      parameters: []
+      tags:
+        - ユーザ管理機能（account）
+    put:
+      tags:
+        - ユーザ管理機能（account）
+      summary: API006 - ユーザ編集機能
+      description: |
+        ## 概要
+        「cook_user_mst」テーブルの更新を行う。
+        ## 処理詳細
+        1. リクエストパラメータチェックを行う。
+
+           | No  | パラメータ | 説明       | 型     | 文字種     | 必須 | デフォルト値 | 最小文字数(最小値) | 最大文字数(最大値) | パターン(正規表現) |
+           | --- | ---------- | ---------- | ------ | ---------- | ---- | ------------ | ------------------ | ------------------ | ------------------ |
+           | 1   | password     | パスワード   | String | 半角英数字 | -    |           | 1                 | 20                 |               |
+           | 2   | userName     | ユーザ名   | String | 半角英数字 | -    |           | 1                 | 100                 |               |
+           | 3   | version     | バージョン   | Short | 半角数字 | ○    | 0          |                  |                  |               |
+
+        2. ログイン時のユーザIDをキーにDBにレコードが存在するか確認する。
+           * レコードが存在しない場合、404エラーとする。
+        3. リクエストパラメータの「version」と「cook_user_mst」テーブルの「version」が一致するか確認する。
+           * 不一致の場合、409エラーとする。
+        4. 以下の通りログイン時のユーザIDと「cook_user_mst」テーブルのユーザIDが一致するレコードを更新する。
+
+           | 論理名               | 物理名          | 導出元                                     |
+           | -------------------- | --------------- | ------------------------------------------ |
+           | ユーザID           | user_id        | 更新しない           |
+           | パスワード           | password        | リクエストパラメータのパスワード               |
+           | ユーザ名           | user_name        | リクエストパラメータのユーザ名               |
+           | 更新日時           | update_datetime        | 現在日時            |
+           | バージョン           | version        | リクエストパラメータのバージョン + 1          |
+
+        5. レスポンスを返却する。
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userName:
+                  type: string
+                  minLength: 1
+                  maxLength: 20
+                  description: ユーザ名
+                password:
+                  type: string
+                  description: パスワード
+                  minLength: 1
+                  maxLength: 20
+                version:
+                  type: integer
+                  description: バージョン
+                  maximum: 32767
+                  minimum: 0
+              required:
+                - version
+      responses:
+        '200':
+          $ref: '#/components/responses/200'
+        '400':
+          $ref: '#/components/responses/400'
+        '403':
+          $ref: '#/components/responses/403'
+        '404':
+          $ref: '#/components/responses/404'
+        '409':
+          $ref: '#/components/responses/409'
+      operationId: putAccount
+      security:
+        - Cookie: []
+    delete:
+      tags:
+        - ユーザ管理機能（account）
+      summary: API007 - ユーザ削除機能
+      description: |
+        ## 概要
+        ログイン時のユーザIDと「cook_user_mst」テーブルのユーザIDが一致するレコードを削除する。  
+        ## 処理詳細
+        1. リクエストパラメータチェックを行う。
+
+           | No | パラメータ | 説明       | 型     | 文字種       | 必須 | デフォルト値 | 最小文字数(最小値) | 最大文字数(最大値) | パターン(正規表現) |
+           |----|------------|------------|--------|--------------|------|--------------|--------------------|--------------------|--------------------|
+           | 1   | userId      | ユーザID | String |  半角英数字  | ○    |         | 12                 | 12                  |                 |
+        2. ログイン時のユーザIDと「cook_user_mst」テーブルのユーザIDが一致するレコードを削除する。
+           * 削除対象の情報が存在しない場合は404エラーとする。
+        3. レスポンスを返却する。
+      responses:
+        '200':
+          $ref: '#/components/responses/200'
+        '404':
+          $ref: '#/components/responses/404'
+        '500':
+          $ref: '#/components/responses/500'
+      operationId: deleteAccount
+      security:
+        - Cookie: []
+  /account/lock:
+    put:
+      tags:
+        - ユーザ管理機能（account）
+      summary: API008 - ユーザロック機能
+      description: |
+        ## 概要
+        「cook_user_mst」テーブルの更新を行う。
+        ## 処理詳細
+        1. リクエストパラメータチェックを行う。
+
+           | No  | パラメータ | 説明       | 型     | 文字種     | 必須 | デフォルト値 | 最小文字数(最小値) | 最大文字数(最大値) | パターン(正規表現) |
+           | --- | ---------- | ---------- | ------ | ---------- | ---- | ------------ | ------------------ | ------------------ | ------------------ |
+           | 1   | userId     | ユーザID   | String | 半角英数字 | -    |           | 12                 | 12                 |               |
+           | 2   | lock     | アカウントロック   | Boolean | 半角数字 | -    |           | 0                 | 1                 |               |
+           | 3   | version     | バージョン   | Short | 半角数字 | ○    | 0          |                  |                  |               |
+
+        2. 管理者ユーザか確認する。
+           * 管理者ユーザ以外の場合、403エラーとする。
+        3. リクエストパラメータのをキーにDBにレコードが存在するか確認する。
+           * 情報が存在しない場合、404エラーとする。
+        4. リクエストパラメータの「version」と「cook_user_mst」テーブルの「version」が一致するか確認する。
+           * 不一致の場合、409エラーとする。
+        5. 以下の通りリクエストパラメータのと「cook_user_mst」テーブルのが一致するレコードを更新する。
+
+           | 論理名               | 物理名          | 導出元                                     |
+           | -------------------- | --------------- | ------------------------------------------ |
+           | ユーザID           | user_id        | 更新しない               |
+           | アカウントロック           | lock        | リクエストパラメータのアカウントロック               |
+           | バージョン           | version        | リクエストパラメータのバージョン + 1          |
+        5. レスポンスを返却する。
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userId:
+                  type: string
+                  minLength: 12
+                  maxLength: 12
+                  description: ユーザID
+                lock:
+                  type: boolean
+                  description: 権限
+                version:
+                  type: integer
+                  description: バージョン
+                  maximum: 32767
+                  minimum: 0
+              required:
+                - version
+      responses:
+        '200':
+          $ref: '#/components/responses/200'
+        '400':
+          $ref: '#/components/responses/400'
+        '403':
+          $ref: '#/components/responses/403'
+        '404':
+          $ref: '#/components/responses/404'
+        '409':
+          $ref: '#/components/responses/409'
+      operationId: putAccountLock
+      security:
+        - Cookie: []
+    parameters: []
+  /signup:
+    post:
+      tags:
+        - ユーザ管理機能（account）
+      summary: API005 - ユーザ登録機能
+      description: |
+        ## 概要
+        「cook_user_mst」テーブルに登録を行う。
+        ## 処理詳細
+        1. リクエストパラメータチェックを行う。
+          
+           | No  | パラメータ   | 説明         | 型     | 文字種     | 必須 | デフォルト値 | 最小文字数(最小値) | 最大文字数(最大値) | パターン(正規表現) |
+           | --- | ------------ | ------------ | ------ | ---------- | ---- | ------------ | ------------------ | ------------------ | ------------------ |
+           | 1   | password     | パスワード   | String | 半角英数字 | 〇   |              | 1                  | 20                 |                    |
+           | 2   | userName     | ユーザ名     | String | 半角／全角 | 〇   |              | 1                  | 100                |                    |
+           | 3   | secretId     | 秘密の質問ID | String | 半角英数字 | 〇   |              | 7                  | 7                  |                    |
+           | 4   | secretAnswer | 秘密の答え   | String | 半角英数字 | 〇   |              | 1                  | 200                |                    |
+
+        2. 以下の通り「cook_user_mst」テーブルに追加する。
+
+           | 論理名               | 物理名          | 導出元                                                  |
+           | -------------------- | --------------- | ------------------------------------------------------- |
+           | ユーザID             | user_id         | ※1                                                     |
+           | パスワード           | password        | リクエストパラメータのパスワードをハッシュ化した値      |
+           | ユーザ名             | user_name       | リクエストパラメータのユーザ名                          |
+           | 秘密の質問ID         | secret_id       | リクエストパラメータの秘密の質問ID                      |
+           | 秘密の答え           | secret_answer   | リクエストパラメータの秘密の答え                        |
+           | パスワード間違え回数 | error_password  | 0                                                       |
+           | アカウントロック     | lock            | False                                                   |
+           | 権限                 | authority       | 0                                                       |
+           | 更新日時             | update_datetime | 設定しない ※デフォルト値のCURRENT_TIMESTAMPが設定される |
+           | バージョン           | version         | 設定しない ※デフォルト値の0が設定される                 |
+
+           ※1 通番でユーザIDを発行し、登録を行う。通番は「ID体系:user00000001~user99999999」とし、  
+               「cook_user_mst」テーブルから最大のユーザIDを取得し、インクリメントした値を格納する。
+        3. 登録したレコードのユーザIDをレスポンスに設定し、返却する。
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userName:
+                  type: string
+                  minLength: 1
+                  maxLength: 20
+                  description: ユーザ名
+                password:
+                  type: string
+                  minLength: 1
+                  maxLength: 20
+                  description: パスワード
+                secretQuestionId:
+                  type: string
+                  minLength: 7
+                  maxLength: 7
+                  description: 秘密の質問
+                secretAnswer:
+                  type: string
+                  minLength: 1
+                  maxLength: 20
+                  description: 秘密の答え
+              required:
+                - userName
+                - password
+                - secretQuestionId
+                - secretAnswer
+        description: ''
+      responses:
+        '200':
+          description: 正常
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  resultCode:
+                    description: '結果コード (000: 正常)'
+                    type: string
+                    enum:
+                      - '000'
+                  optional:
+                    type: object
+                    properties:
+                      userId:
+                        description: ユーザID
+                        type: string
+        '400':
+          $ref: '#/components/responses/400'
+        '500':
+          $ref: '#/components/responses/500'
+      operationId: postSignup
+    parameters: []
+  /question:
+    get:
+      summary: API034 - 秘密の質問検索機能
+      operationId: getQuestion
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  resultCode1:
+                    type: string
+                  optional:
+                    type: object
+                    properties:
+                      questionList:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            commonId:
+                              type: string
+                            commonGroup:
+                              type: string
+                            commonName:
+                              type: string
+                            commonValue1:
+                              type: string
+                            commonValue2:
+                              type: string
+      description: |
+        ## 概要
+        「common_mst」テーブルから秘密の質問を取得する。
+        ## 処理詳細
+
+        1. 「common_mst」テーブルから秘密の「secret_question」を汎用マスタグループの検索条件に該当レコードを取得する。
+           * リクエストパラメータがnullの項目は検索条件に適用しない。
+        2. 取得した 「common_mst」テーブルのレコードをレスポンスに設定し、返却する。
+      tags:
+        - ユーザ管理機能（account）
+    put:
+      summary: API009 - パスワード再設定機能
+      operationId: putQuestion
+      responses:
+        '200':
+          $ref: '#/components/responses/200'
+        '400':
+          $ref: '#/components/responses/400'
+        '404':
+          $ref: '#/components/responses/404'
+      description: |
+        ## 概要
+        秘密の質問と答えの一致を確認し、パスワードを変更する。
+        ## 処理詳細
+        1. リクエストパラメータチェックを行う。  
+
+           | No | パラメータ     | 説明           | 型      | 文字種     | 必須 | デフォルト値 | 最小文字数(最小値) | 最大文字数(最大値) | パターン(正規表現) |
+           |----|----------------|---------------|---------|------------|------|--------------|--------------------|--------------------|--------------------|
+           | 1  | userId         | ユーザID      | String  | 半角英数字  | 〇    | -            | 12                 | 12                 | -                  |
+           | 2  | newPassword       | 新パスワード | String  | 半角英数字    | 〇    | -            | 1                  | 20                  | -               |
+           | 3  | secretQuestionId| 秘密の質問    | String  | 半角英数字   | 〇    | -            | 7                  | 7                  | -                  |
+           | 4  | secretAnswer   | 秘密の答え     | String | 半角 / 全角   | 〇    | -            | 1                  | 200                 | -                  |
+
+        2. ユーザIDをキーに「cook_user_mst」テーブルからユーザ情報を取得する。
+           * ユーザ情報が存在しない場合、404エラーとする。
+        3. リクエストパラメータの秘密の質問、答えがユーザ情報の秘密の質問、答えと一致するか確認する。
+           * 不一致の場合、404エラーとする。
+        4. パスワードをリクエストパラメータの新パスワードに変更する。
+      tags:
+        - ユーザ管理機能（account）
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userId:
+                  type: string
+                  minLength: 12
+                  maxLength: 12
+                newPassword:
+                  type: string
+                  minLength: 1
+                  maxLength: 20
+                secretQuestionId:
+                  type: string
+                  minLength: 7
+                  maxLength: 7
+                secretAnswer:
+                  type: string
+                  minLength: 1
+                  maxLength: 20
+              required:
+                - userId
+                - newPassword
+                - secretQuestionId
+                - secretAnswer
+  /food:
+    get:
+      summary: API018 - 食材検索機能
+      tags:
+        - 食材管理機能（food）
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  resultCode:
+                    type: string
+                  optional:
+                    $ref: '#/components/schemas/FoodList'
+        '400':
+          $ref: '#/components/responses/400'
+      operationId: getFood
+      description: |
+        ## 概要
+        「food_mst」, 「common_mst」テーブルから検索を行う。
+        ## 処理詳細
+        1. リクエストパラメータチェックを行う。
+          
+           | パラメータ     | 説明           | 型      | 文字種     | 必須 | デフォルト値 | 最小文字数(最小値) | 最大文字数(最大値) | パターン(正規表現) |
+           |----------------|----------------|---------|------------|------|--------------|--------------------|--------------------|--------------------|
+           | foodId         | 食材ID  | String         | 半角英数字  |     |                  | 12                 | 12          |                |
+           | foodName         | 食材名  | String         | 半角 / 全角  |     |                  | 1                 | 100          |                |
+           | foodUnit         | 単位  | String         | 半角英数字  |     |                  | 7                 | 7          |                |
+           | orderBy        | ソート項目     | Integer | 半角数字   | -    | 1            | -                  | -                  | [123] ※1           |
+           | ascOrDesc      | 昇順／降順     | Integer | 半角数字   | -    | 1            | -                  | -                  | [12]               |
+           | limit          | 最大取得数     | Integer | 半角数字   | -    | 100          | (1)                | (2147483647)       | -                  |
+           | offset         | オフセット     | Integer | 半角数字   | -    | 0            | (0)                | (2147483647)       | -                  |
+
+           ※1 ソート項目は、1：食材ID, 2：食材名, 3：単位。
+        2. 「food_mst」テーブルに「common_mst」テーブルを内部結合し、リクエストパラメータの食材ID, 食材名, 単位を検索条件に該当レコードを取得する。
+           * リクエストパラメータがnullの項目は検索条件に適用しない。
+        3. 取得した「food_mst」, 「common_mst」テーブルの該当レコードをレスポンスに設定し、返却する。
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                foodId:
+                  type: string
+                  minLength: 12
+                  maxLength: 12
+                foodName:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                foodUnit:
+                  type: string
+                  minLength: 7
+                  maxLength: 7
+                orderBy:
+                  type: number
+                  enum:
+                    - 1
+                    - 2
+                    - 3
+                ascOrDesc:
+                  type: number
+                  enum:
+                    - 1
+                    - 2
+                limit:
+                  type: number
+                  minimum: 1
+                  maximum: 2147483647
+                offset:
+                  type: number
+                  maximum: 2147483647
+                  minimum: 0
+        description: ''
+      security:
+        - Cookie: []
+    post:
+      summary: API020 - 食材登録機能
+      operationId: postFood
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  resultCode:
+                    type: string
+                  foodId:
+                    type: string
+        '400':
+          $ref: '#/components/responses/400'
+      description: |
+        ## 概要
+        「food_mst」テーブルに登録を行う。
+        ## 処理詳細
+        1. リクエストパラメータチェックを行う。
+          
+           | No  | パラメータ     | 説明                 | 型      | 文字種     | 必須 | デフォルト値      | 最小文字数(最小値) | 最大文字数(最大値) | パターン(正規表現) |
+           | --- | -------------- | -------------------- | ------- | ---------- | ---- | ----------------- | ------------------ | ------------------ | ------------------ |
+           | 1  | foodName        | 食材名           | String   | 半角 / 全角   | 〇   |                  | 1              | 100              |                 |
+           | 2  | foodUnit        | 単位           | String   | 半角英数字   | 〇   |                  | 7              | 7              |                 |
+           | 3  | others1        | その他1           | String   | 半角 / 全角   |    |                  | 1              | 100              |                 |
+           | 4  | others2        | その他2           | String   | 半角 / 全角   |    |                  | 1              | 100              |                 |
+           | 5  | others3        | その他3           | String   | 半角 / 全角   |    |                  | 1              | 100              |                 |
+           | 6  | others4        | その他4           | String   | 半角 / 全角   |    |                  | 1              | 100              |                 |
+           | 7  | others5        | その他5           | String   | 半角 / 全角   |    |                  | 1              | 100              |                 |
+
+        2. リクエストパラメータの単位をキーに「common_mst」テーブルにレコードが存在するか確認する。
+           * レコードが存在しない場合、404エラーとする。
+        3. リクエストパラメータの食材名とリクエストパラメータの単位をキーに「food_mst」テーブルにレコードが存在するか確認する。
+           * レコードが存在した場合、400エラーとする。
+        4. 以下の通り「food_mst」テーブルに追加する。
+
+           | 論理名               | 物理名          | 導出元                                         |
+           | -------------------- | --------------- | ---------------------------------------------- |
+           | 食材ID           | food_id        | ※1               |
+           | 食材名           | food_name        | リクエストパラメータの食材名               |
+           | 単位           | food_unit        | リクエストパラメータの単位               |
+           | その他1           | others1        | リクエストパラメータのその他1               |
+           | その他2           | others2        | リクエストパラメータのその他2               |
+           | その他3           | others3        | リクエストパラメータのその他3               |
+           | その他4           | others4        | リクエストパラメータのその他4               |
+           | その他5           | others5        | リクエストパラメータのその他5               |
+           | ユーザID           | user_id        | ログイン時のユーザID               |
+           | 更新日時           | update_datetime        | 設定しない ※デフォルト値のCURRENT_TIMESTAMPが設定される            |
+           | バージョン           | version        | 設定しない ※デフォルト値の0が設定される            |
+
+           ※1 通番で食材IDを発行し、登録を行う。通番は「ID体系:food00000001～food99999999」とし、  
+               「food_mst」テーブルから最大の食材IDを取得し、インクリメントした値を格納する。
+        5. 登録したレコードの食材IDをレスポンスに設定し、返却する。
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                foodName:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                foodUnit:
+                  type: string
+                  minLength: 7
+                  maxLength: 7
+                others1:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                others2:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                others3:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                others4:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                others5:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+      tags:
+        - 食材管理機能（food）
+      security:
+        - Cookie: []
+    put:
+      summary: API021 - 食材編集機能
+      operationId: putFood
+      responses:
+        '200':
+          $ref: '#/components/responses/200'
+        '400':
+          $ref: '#/components/responses/400'
+        '404':
+          $ref: '#/components/responses/404'
+        '409':
+          $ref: '#/components/responses/409'
+      description: |-
+        ## 概要
+        「food_mst」テーブルの更新を行う。
+        ## 処理詳細
+        1. リクエストパラメータチェックを行う。
+
+           | No  | パラメータ | 説明       | 型     | 文字種     | 必須 | デフォルト値 | 最小文字数(最小値) | 最大文字数(最大値) | パターン(正規表現) |
+           | --- | ---------- | ---------- | ------ | ---------- | ---- | ------------ | ------------------ | ------------------ | ------------------ |
+           | 1   | foodId     | 食材ID   | String | 半角英数字 | ○    |           | 12                 | 12                 |               |
+           | 2   | foodName     | 食材名   | String | 半角 / 全角 | -    |           | 1                 | 100                 |               |
+           | 3   | foodUnit     | 単位   | String | 半角英数字 | -    |           | 7                 | 7                 |               |
+           | 4   | others1     | その他1   | String | 半角 / 全角 | -    |           | 1                 | 100                 |               |
+           | 5   | others2     | その他2   | String | 半角 / 全角 | -    |           | 1                 | 100                 |               |
+           | 6   | others3     | その他3   | String | 半角 / 全角 | -    |           | 1                 | 100                 |               |
+           | 7   | others4     | その他4   | String | 半角 / 全角 | -    |           | 1                 | 100                 |               |
+           | 8   | others5     | その他5   | String | 半角 / 全角 | -    |           | 1                 | 100                 |               |
+           | 9   | version     | バージョン   | Short | 半角数字 | ○    | 0          |                  |                  |               |
+
+        2. リクエストパラメータの食材IDをキーにDBにレコードが存在するか確認する。
+           * レコードが存在しない場合、404エラーとする。
+        3. リクエストパラメータの「version」と「food_mst」テーブルの「version」が一致するか確認する。
+           * 不一致の場合、409エラーとする。
+        4. リクエストパラメータの食材名とリクエストパラメータの単位をキーに「food_mst」テーブルにレコードが存在するか確認する。
+           * リクエストパラメータの食材名がNULLの場合、「food_mst」テーブルの食材名をキーとする。
+           * リクエストパラメータの単位がNULLの場合、「food_mst」テーブルの単位をキーとする。
+           * レコードが存在した場合、400エラーとする。
+        5. 以下の通りリクエストパラメータの食材IDと「food_mst」テーブルの食材IDが一致するレコードを更新する。
+
+           | 論理名               | 物理名          | 導出元                                     |
+           | -------------------- | --------------- | ------------------------------------------ |
+           | 食材ID           | food_id        | 更新しない           |
+           | 食材名           | food_name        | リクエストパラメータの食材名               |
+           | 単位           | food_unit        | リクエストパラメータの単位               |
+           | その他1           | others1        | リクエストパラメータのその他1               |
+           | その他2           | others2        | リクエストパラメータのその他2               |
+           | その他3           | others3        | リクエストパラメータのその他3               |
+           | その他4           | others4        | リクエストパラメータのその他4               |
+           | その他5           | others5        | リクエストパラメータのその他5               |
+           | ユーザID           | user_id        | ログイン時のユーザID               |
+           | 更新日時           | update_datetime        | 現在日時            |
+           | バージョン           | version        | リクエストパラメータのバージョン + 1          |
+        6. レスポンスを返却する。
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              minProperties: 12
+              maxProperties: 12
+              properties:
+                foodId:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                foodName:
+                  type: string
+                  minLength: 7
+                  maxLength: 7
+                foodUnit:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                others1:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                others2:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                others3:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                others4:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                others5:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                version:
+                  type: number
+              required:
+                - foodId
+                - version
+      parameters: []
+      tags:
+        - 食材管理機能（food）
+      security:
+        - Cookie: []
+  '/food/{foodId}':
+    get:
+      summary: API019 - 食材詳細検索機能
+      tags:
+        - 食材管理機能（food）
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  resultCode:
+                    type: string
+                  optional:
+                    $ref: '#/components/schemas/Food'
+        '400':
+          $ref: '#/components/responses/400'
+        '404':
+          $ref: '#/components/responses/404'
+      operationId: getFoodById
+      description: |
+        ## 概要
+        「food_mst」テーブルから詳細情報を取得し、返却する。
+        ## 処理詳細 
+        1. リクエストパラメータチェックを行う。
+
+           | No | パラメータ | 説明   | 型     | 文字種       | 必須 | デフォルト値 | 最小文字数(最小値) | 最大文字数(最大値) | パターン(正規表現) |
+           |----|------------|--------|--------|--------------|------|--------------|--------------------|--------------------|--------------------|
+           | 1   | foodId      | 食材ID | String |  半角英数字  | ○    |         | 12                 | 12                  |                 |
+        2. リクエストパラメータの食材IDをキーに「food_mst」テーブルに「common_mst」テーブルを内部結合し、詳細情報を取得する。
+           * 「food_mst」テーブルに該当レコードがなかった場合は404エラーとする。
+        3. 取得した「food_mst」テーブルの詳細情報をレスポンスに設定し、返却する。
+      security:
+        - Cookie: []
+    delete:
+      summary: API022 - 食材削除機能
+      operationId: deleteFood
+      responses:
+        '200':
+          $ref: '#/components/responses/200'
+        '400':
+          $ref: '#/components/responses/400'
+        '404':
+          $ref: '#/components/responses/404'
+      description: |
+        ## 概要
+        リクエストパラメータの食材IDと「food_mst」テーブルの食材IDが一致するレコードを削除する。  
+        ## 処理詳細
+        1. リクエストパラメータチェックを行う。
+
+           | No | パラメータ | 説明       | 型     | 文字種       | 必須 | デフォルト値 | 最小文字数(最小値) | 最大文字数(最大値) | パターン(正規表現) |
+           |----|------------|------------|--------|--------------|------|--------------|--------------------|--------------------|--------------------|
+           | 1   | foodId      | 食材ID | String |  半角英数字  | ○    |         | 12                 | 12                  |                 |
+        2. リクエストパラメータの食材IDと「food_mst」テーブルの食材IDが一致するレコードを削除する。
+           * 削除対象の情報が存在しない場合は404エラーとする。
+        3. レスポンスを返却する。
+      tags:
+        - 食材管理機能（food）
+      security:
+        - Cookie: []
+    parameters:
+      - schema:
+          type: string
+          minLength: 12
+          maxLength: 12
+        name: foodId
+        in: path
+        required: true
+        description: 食事ID
+  /cook:
+    get:
+      summary: API010 - 料理検索機能
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  resultCode:
+                    type: string
+                  cookList:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        cookId:
+                          type: string
+                        cookName:
+                          type: string
+                        cookProcess:
+                          type: string
+                        cookPrice:
+                          type: number
+                        cookMovie:
+                          type: string
+                        cookUrl:
+                          type: string
+                        cookFlg:
+                          type: boolean
+                        userId:
+                          type: string
+                        version:
+                          type: number
+        '400':
+          $ref: '#/components/responses/400'
+      operationId: getCook
+      description: |
+        ## 概要
+        「cook_mst」, 「cook_food_tbl」テーブルから検索を行う。
+        ## 処理詳細
+        1. リクエストパラメータチェックを行う。
+
+           | パラメータ  | 説明       | 型      | 文字種      | 必須 | デフォルト値 | 最小文字数(最小値) | 最大文字数(最大値) | パターン(正規表現) |
+           | ----------- | ---------- | ------- | ----------- | ---- | ------------ | ------------------ | ------------------ | ------------------ |
+           | cookId      | 料理ID     | String  | 半角英数字  |      |              | 12                 | 12                 |                    |
+           | cookName    | 料理名     | String  | 半角 / 全角 |      |              | 1                  | 200                |                    |
+           | userId      | ユーザID   | Long    | 半角数字    | -    | -            | 12                 | 12                 | -                  |
+           | minPrice    | 最大金額   | Long    | 半角数字    | -    | -            | 12                 | 12                 | -                  |
+           | maxPrice    | 最小金額   | String  | 半角英数字  | -    | -            | 12                 | 12                 | -                  |
+           | foodList    | 食材リスト | List    | -           |      |              |                    |                    |                    |
+           | - foodId    | 食材ID     | String  | 半角英数字  |      |              | 12                 | 12                 |                    |
+           | - unitValue | 単位値     | Long    | 半角数字    |      | 0            |                    |                    |                    |
+           | - others1   | その他1    | String  | 半角英数字  |      |              | 1                  | 100                |                    |
+           | - others2   | その他2    | String  | 半角英数字  |      |              | 1                  | 100                |                    |
+           | - others3   | その他3    | String  | 半角英数字  |      |              | 1                  | 100                |                    |
+           | - others4   | その他4    | String  | 半角英数字  |      |              | 1                  | 100                |                    |
+           | - others5   | その他5    | String  | 半角英数字  |      |              | 1                  | 100                |                    |
+           | orderBy     | ソート項目 | Integer | 半角数字    | -    | 1            | -                  | -                  | [123] ※1           |
+           | ascOrDesc   | 昇順／降順 | Integer | 半角数字    | -    | 1            | -                  | -                  | [12]               |
+           | limit       | 最大取得数 | Integer | 半角数字    | -    | 100          | (1)                | (2147483647)       | -                  |
+           | offset      | オフセット | Integer | 半角数字    | -    | 0            | (0)                | (2147483647)       | -                  |
+
+           ※1 ソート項目は、1：料理ID, 2：料理名, 3：金額 。
+        2. 「cook_food_tbl」テーブルに「cook_mst」テーブルを内部結合し、リクエストパラメータの料理ID, 料理名, 金額を検索条件に該当レコードを取得する。
+           * リクエストパラメータがnullの項目は検索条件に適用しない。
+           * 検索結果に料理IDは重複してはいけない。
+        3. 取得した「cook_mst」, 「cook_food_tbl」テーブルの該当レコードをレスポンスに設定し、返却する。
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                cookFoodId:
+                  type: string
+                  minLength: 12
+                  maxLength: 12
+                cookId:
+                  type: string
+                  minLength: 12
+                  maxLength: 12
+                cookName:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                userId:
+                  type: string
+                  minLength: 12
+                  maxLength: 12
+                foodList:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/Food'
+                orderBy:
+                  type: number
+                  enum:
+                    - 1
+                    - 2
+                    - 3
+                ascOrDesc:
+                  type: number
+                  enum:
+                    - 1
+                    - 2
+                limit:
+                  type: number
+                  minimum: 1
+                  maximum: 2147483647
+                offset:
+                  type: number
+                  maximum: 2147483647
+                  minimum: 0
+        description: ''
+      tags:
+        - 料理管理機能（cook）
+      security:
+        - Cookie: []
+    post:
+      summary: API012 - 料理登録機能
+      operationId: postCook
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  resultCode:
+                    type: string
+                  cookId:
+                    type: string
+        '400':
+          $ref: '#/components/responses/400'
+      description: |
+        ## 概要
+        「cook_mst」, 「cook_food_tbl」テーブルに登録を行う。
+        ## 処理詳細
+        1. リクエストパラメータチェックを行う。
+          
+           | パラメータ     | 説明                 | 型      | 文字種     | 必須 | デフォルト値      | 最小文字数(最小値) | 最大文字数(最大値) | パターン(正規表現) |
+           | -------------- | -------------------- | ------- | ---------- | ---- | ----------------- | ------------------ | ------------------ | ------------------ |
+           | cookName        | 料理名           | String   | 半角 / 全角   | 〇   |                  | 1              | 200              |                 |
+           | cookProcess        | 手順           | String   | 半角 / 全角   | 〇   |                  | 1              | 4000              |                 |
+           | cookPrice        | 金額           | Long   | 半角数字   | 〇   | 0                 | 0             |               |                 |
+           | cookMovie        | 動画URL           | String   | 半角 / 全角   |    |                  | 0              | 4000              |                 |
+           | cookUrl        | その他URL           | String   | 半角 / 全角   |    |                  | 0              | 4000              |                 |
+           | foodList         | 食材リスト  | List         | -  |     |                  |                  |           |                |
+           | - foodId         | 食材ID  | String         | 半角英数字  |     |                  | 12                 | 12          |                |
+           | - unitValue         | 単位値  | Long         | 半角数字  |     | 0                 |                  |           |                |
+
+        2. トランザクションを開始する。
+        3. 以下の通り「cook_mst」テーブルに追加する。
+
+           | 論理名               | 物理名          | 導出元                                         |
+           | -------------------- | --------------- | ---------------------------------------------- |
+           | 料理ID           | cook_id        | ※1               |
+           | 料理名           | cook_name        | リクエストパラメータの料理名               |
+           | 手順           | cook_process        | リクエストパラメータの手順               |
+           | 金額           | cook_price        | リクエストパラメータの金額               |
+           | 動画URL           | cook_movie        | リクエストパラメータの動画URL               |
+           | その他URL           | cook_url        | リクエストパラメータのその他URL               |
+           | 共有フラグ           | cook_flg        | False                                      |
+           | ユーザID           | user_id        | ログイン時のユーザID               |
+           | 更新日時           | update_datetime        | 設定しない ※デフォルト値のCURRENT_TIMESTAMPが設定される            |
+           | バージョン           | version        | 設定しない ※デフォルト値の0が設定される            |
+
+           ※1 通番で料理IDを発行し、登録を行う。通番は「ID体系:cook00000001～cook99999999」とし、  
+               「cook_mst」テーブルから最大の料理IDを取得し、インクリメントした値を格納する。
+        4. 食材リストの食材IDをキーに「food_mst」テーブルにレコードが存在するか確認する。
+           * レコードが存在しない場合、ロールバックを行い、404エラーとする。
+        5. 以下の通り「cook_food_tbl」テーブルに追加する。
+           * リクエストパラメータの食材リスト要素数分以下の追加を行う。
+           * DBエラーが発生した場合、ロールバックを行い、500エラーとする。
+
+           | 論理名               | 物理名          | 導出元                                         |
+           | -------------------- | --------------- | ---------------------------------------------- |
+           | 料理食材ID           | cook_food_id        | ※1               |
+           | 料理ID           | cook_id        | 2で発行したの料理ID               |
+           | 食材ID           | food_id        | リクエストパラメータの食材ID               |
+           | 単位値           | unit_value        | リクエストパラメータの単位値               |
+           | ユーザID           | user_id        | ログイン時のユーザID               |
+           | 更新日時           | update_datetime        | 設定しない ※デフォルト値のCURRENT_TIMESTAMPが設定される            |
+           | バージョン           | version        | 設定しない ※デフォルト値の0が設定される            |
+
+           ※1 通番で料理食材IDを発行し、登録を行う。通番は「ID体系:cf0000000001～cf9999999999」とし、  
+               「cook_food_tbl」テーブルから最大の料理食材IDを取得し、インクリメントした値を格納する。
+        6. トランザクションを終了し、コミットを行う。
+        7. 登録したレコードの料理IDをレスポンスに設定し、返却する。
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                cookName:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                cookProcess:
+                  type: string
+                  maxLength: 4000
+                  minLength: 1
+                cookPrice:
+                  type: number
+                cookMovie:
+                  type: string
+                  minLength: 0
+                  maxLength: 4000
+                cookUrl:
+                  type: string
+                  maxLength: 4000
+                  minLength: 0
+                foodList:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      foodId:
+                        type: string
+                        minLength: 12
+                        maxLength: 12
+                      unitValue:
+                        type: number
+      tags:
+        - 料理管理機能（cook）
+      security:
+        - Cookie: []
+    put:
+      summary: API013 - 料理編集機能
+      operationId: putCook
+      responses:
+        '200':
+          $ref: '#/components/responses/200'
+        '400':
+          $ref: '#/components/responses/400'
+        '404':
+          $ref: '#/components/responses/404'
+        '409':
+          $ref: '#/components/responses/409'
+      description: |
+        ## 概要
+        「cook_mst」, 「cook_food_tbl」テーブルの更新を行う。
+        ## 処理詳細
+        1. リクエストパラメータチェックを行う。
+
+           | パラメータ  | 説明       | 型     | 文字種      | 必須 | デフォルト値 | 最小文字数(最小値) | 最大文字数(最大値) | パターン(正規表現) |
+           | ----------- | ---------- | ------ | ----------- | ---- | ------------ | ------------------ | ------------------ | ------------------ |
+           | cookId      | 料理ID     | String | 半角英数字  | ○    |              | 12                 | 12                 |                    |
+           | cookName    | 料理名     | String | 半角 / 全角 | -    |              | 1                  | 200                |                    |
+           | cookProcess | 手順       | String | 半角 / 全角 | -    |              | 1                  | 4000               |                    |
+           | cookPrice   | 金額       | Long   | 半角数字    | -    | 0            |                    |                    |                    |
+           | cookMovie   | 動画URL    | String | 半角 / 全角 | -    |              | 0                  | 4000               |                    |
+           | cookUrl     | その他URL  | String | 半角 / 全角 | -    |              | 0                  | 4000               |                    |
+           | cookFlg    | 共有フラグ | Boolean | 半角数字    | -    | False        | 0                  | 1                  |                    |
+           | version     | バージョン | Short  | 半角数字    | ○    | 0            |                    |                    |                    |
+           | foodList    | 食材リスト | List   | -           | -    |              |                    |                    |                    |
+           | - foodId         | 食材ID  | String         | 半角英数字  |     |                  | 12                 | 12          |                |
+           | - unitValue         | 単位値  | Long         | 半角数字  |     | 0                 |                  |           |                |
+
+        2. トランザクションを開始する。
+        3. リクエストパラメータの料理IDをキーにDBにレコードが存在するか確認する。
+           * レコードが存在しない場合、404エラーとする。
+        4. リクエストパラメータの「version」と「cook_mst」テーブルの「version」が一致するか確認する。
+           * 不一致の場合、409エラーとする。
+        5. 以下の通りリクエストパラメータの料理IDと「cook_mst」テーブルの料理IDが一致するレコードを更新する。
+
+           | 論理名       | 物理名          | 導出元                               |
+           | ------------ | --------------- | ------------------------------------ |
+           | 料理ID       | cook_id         | 更新しない                           |
+           | 料理名       | cook_name       | リクエストパラメータの料理名         |
+           | 手順         | cook_process    | リクエストパラメータの手順           |
+           | 金額         | cook_price      | リクエストパラメータの金額           |
+           | 動画URL      | cook_movie      | リクエストパラメータの動画URL        |
+           | その他URL    | cook_url        | リクエストパラメータのその他URL      |
+           | 共有フラグ   | cook_url        | リクエストパラメータのその他URL      |
+           | ユーザID     | user_id         | ログイン時のユーザID                 |
+           | 更新日時     | update_datetime | 現在日時                             |
+           | バージョン   | version         | リクエストパラメータのバージョン + 1 |
+
+        6. 食材リストの食材IDをキーに「food_mst」テーブルにレコードが存在するか確認する。
+           * レコードが存在しない場合、ロールバックを行い、404エラーとする。
+        7. リクエストパラメータの料理IDと「cook_food_tbl」テーブルの料理IDが一致するレコードを削除する。
+        8. 以下の通り「cook_food_tbl」テーブルに追加する。
+           * 食材リストの要素数分以下の追加を行う。
+           * DBエラーが発生した場合、ロールバックを行い、500エラーとする。
+
+           | 論理名     | 物理名          | 導出元                                                  |
+           | ---------- | --------------- | ------------------------------------------------------- |
+           | 料理食材ID | cook_food_id    | ※1                                                      |
+           | 料理ID     | cook_id         | リクエストパラメータの料理ID                            |
+           | 食材ID     | food_id         | 食材リストの食材ID                                     |
+           | 単位値     | unit_value      | 食材リストの単位値                                     |
+           | ユーザID   | user_id         | ログイン時のユーザID                                    |
+           | 更新日時   | update_datetime | 設定しない ※デフォルト値のCURRENT_TIMESTAMPが設定される |
+           | バージョン | version         | 設定しない ※デフォルト値の0が設定される                 |
+
+           ※1 通番で料理食材IDを発行し、登録を行う。通番は「ID体系:cf0000000001～cf9999999999」とし、  
+               「cook_food_tbl」テーブルから最大の料理食材IDを取得し、インクリメントした値を格納する。
+
+        9. トランザクションを終了し、コミットを行う。
+        10. レスポンスを返却する。
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              minProperties: 12
+              maxProperties: 12
+              properties:
+                cookId:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                cookName:
+                  type: string
+                  minLength: 7
+                  maxLength: 7
+                foodUnit:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                cookProcess:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                cookPrice:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                cookMovie:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                cookUrl:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                version:
+                  type: number
+              required:
+                - cookId
+                - version
+      parameters: []
+      tags:
+        - 料理管理機能（cook）
+      security:
+        - Cookie: []
+    parameters: []
+  '/cook/{cookId}':
+    get:
+      summary: API011 - 料理詳細検索機能
+      tags:
+        - 料理管理機能（cook）
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  resultCode:
+                    type: string
+                  optional:
+                    type: object
+                    properties:
+                      cookId:
+                        type: string
+                      cookName:
+                        type: string
+                      cookProcess:
+                        type: string
+                      cookPrice:
+                        type: string
+                      cookMovie:
+                        type: string
+                      cookUrl:
+                        type: string
+                      cookFlg:
+                        type: string
+                      userId:
+                        type: string
+                      version:
+                        type: string
+                      foodList:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            foodId:
+                              type: string
+                            foodName:
+                              type: string
+                            foodUnit:
+                              type: string
+                            unitValue:
+                              type: string
+                            others1:
+                              type: string
+                            others2:
+                              type: string
+                            others3:
+                              type: string
+                            others4:
+                              type: string
+                            others5:
+                              type: string
+                            commonValue1:
+                              type: string
+                            commonValue2:
+                              type: string
+                            version:
+                              type: number
+        '400':
+          $ref: '#/components/responses/400'
+        '404':
+          $ref: '#/components/responses/404'
+      operationId: getCookById
+      description: |
+        ## 概要
+        「cook_mst」, 「cook_food_tbl」テーブルから詳細情報を取得し、返却する。
+        ## 処理詳細 
+        1. リクエストパラメータチェックを行う。
+
+           | No | パラメータ | 説明   | 型     | 文字種       | 必須 | デフォルト値 | 最小文字数(最小値) | 最大文字数(最大値) | パターン(正規表現) |
+           |----|------------|--------|--------|--------------|------|--------------|--------------------|--------------------|--------------------|
+           | 1   | cookId      | 料理ID | String |  半角英数字  | ○    |         | 12                 | 12                  |                 |
+        2. リクエストパラメータの料理IDをキーに「cook_mst」テーブルから情報を取得する。
+           * 「cook_mst」テーブルに該当レコードがなかった場合は404エラーとする。
+        3. リクエストパラメータの料理IDをキーに「cook_food_tbl」テーブルに「food_mst」テーブルを内部結合し、情報を取得する。
+        4. 取得した「cook_mst」, 「cook_food_tbl」テーブルの情報をレスポンスに設定し、返却する。
+      security:
+        - Cookie: []
+    delete:
+      summary: API014 - 料理削除機能
+      operationId: deleteCook
+      responses:
+        '200':
+          $ref: '#/components/responses/200'
+        '400':
+          $ref: '#/components/responses/400'
+        '404':
+          $ref: '#/components/responses/404'
+      description: |
+        ## 概要
+        リクエストパラメータの料理IDと「cook_mst」テーブルの料理IDが一致するレコードを削除する。  
+        ## 処理詳細
+        1. リクエストパラメータチェックを行う。
+
+           | No | パラメータ | 説明       | 型     | 文字種       | 必須 | デフォルト値 | 最小文字数(最小値) | 最大文字数(最大値) | パターン(正規表現) |
+           |----|------------|------------|--------|--------------|------|--------------|--------------------|--------------------|--------------------|
+           | 1   | cookId      | 料理ID | String |  半角英数字  | ○    |         | 12                 | 12                  |                 |
+        2. リクエストパラメータの料理IDと「cook_mst」テーブルの料理IDが一致するレコードを削除する。
+           * 削除対象の情報が存在しない場合は404エラーとする。
+        3. レスポンスを返却する。
+      tags:
+        - 料理管理機能（cook）
+      security:
+        - Cookie: []
+    parameters:
+      - schema:
+          type: string
+          minLength: 12
+          maxLength: 12
+        name: cookId
+        in: path
+        required: true
+        description: 料理ID
+  /routine:
+    get:
+      summary: API023 - ルーティン検索機能
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  resultCode:
+                    type: string
+                  optional:
+                    $ref: '#/components/schemas/RoutineList'
+        '400':
+          $ref: '#/components/responses/400'
+      operationId: getRoutine
+      description: |
+        ## 概要
+        「routine_mst」 テーブルから検索を行う。
+        ## 処理詳細
+        1. リクエストパラメータチェックを行う。
+          
+           | パラメータ     | 説明           | 型      | 文字種     | 必須 | デフォルト値 | 最小文字数(最小値) | 最大文字数(最大値) | パターン(正規表現) |
+           |----------------|----------------|---------|------------|------|--------------|--------------------|--------------------|--------------------|
+           | routineId         | ルーティンID  | String         | 半角英数字  |     |                  | 15                 | 15          |                |
+           | routineName         | ルーティン名  | String         | 半角 / 全角  |     |                  | 1                 | 200          |                |
+           | orderBy        | ソート項目     | Integer | 半角数字   | -    | 1            | -                  | -                  | [12] ※1           |
+           | ascOrDesc      | 昇順／降順     | Integer | 半角数字   | -    | 1            | -                  | -                  | [12]               |
+           | limit          | 最大取得数     | Integer | 半角数字   | -    | 100          | (1)                | (2147483647)       | -                  |
+           | offset         | オフセット     | Integer | 半角数字   | -    | 0            | (0)                | (2147483647)       | -                  |
+
+           ※1 ソート項目は、1：ルーティンID, 2：ルーティン名。
+        2. 「routine_mst」テーブルからリクエストパラメータのルーティンID, ルーティン名を検索条件に該当レコードを取得する。
+           * リクエストパラメータがnullの項目は検索条件に適用しない。
+        3. 取得した「routine_mst」テーブルと「routine_eat_tbl」テーブルと「food_mst」テーブルの該当レコードをレスポンスに設定し、返却する。
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                routineId:
+                  type: string
+                  minLength: 12
+                  maxLength: 12
+                routineName:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                orderBy:
+                  type: number
+                  enum:
+                    - 1
+                    - 2
+                    - 3
+                ascOrDesc:
+                  type: number
+                  enum:
+                    - 1
+                    - 2
+                limit:
+                  type: number
+                  minimum: 1
+                  maximum: 2147483647
+                offset:
+                  type: number
+                  maximum: 2147483647
+                  minimum: 0
+        description: ''
+      tags:
+        - ルーティン管理機能（routine）
+      security:
+        - Cookie: []
+    post:
+      summary: API025 - ルーティン登録機能
+      operationId: postRoutine
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  resultCode:
+                    type: string
+                  routineId:
+                    type: string
+        '400':
+          $ref: '#/components/responses/400'
+        '404':
+          $ref: '#/components/responses/404'
+      description: |
+        ## 概要
+        「routine_mst」, 「routine_eat_tbl」テーブルに登録を行う。
+        ## 処理詳細
+        1. リクエストパラメータチェックを行う。
+
+           | No  | パラメータ     | 説明                 | 型     | 文字種      | 必須 | デフォルト値 | 最小文字数(最小値) | 最大文字数(最大値) | パターン(正規表現) |
+           | --- | -------------- | -------------------- | ------ | ----------- | ---- | ------------ | ------------------ | ------------------ | ------------------ |
+           | 1   | routineName    | ルーティン名         | String | 半角 / 全角 | 〇   |              | 1                  | 200                |                    |
+           | 2   | routineMaxday  | ルーティン最大日数   | Short  | 半角数字    | 〇   | 7            | 1                  | 7                  |                    |
+           | 3   | routineEatList | ルーティン食事リスト | List   | -           |      | -            | -                  | -                  |                    |
+           | 4   | - cookId       | 料理ID               | String | 半角英数字  | 〇   |              | 12                 | 12                 |                    |
+           | 5   | - routineDay   | ルーティン日数       | Short  | 半角数字    | 〇   |              | 1                  | 7                  |                    |
+           | 6   | - routineTime  | ルーティン時間       | Short  | 半角数字    | 〇   |              | 0                  | 2                  |                    |
+
+        2. ルーティン食事リストのルーティン日数がリクエストパラメータのルーティン最大日数を超えていないか確認する。
+           * 超えていた場合、400エラーとする。
+        3. トランザクションを開始する。
+        4. 以下の通り「routine_mst」テーブルに追加する。
+
+           | 論理名             | 物理名          | 導出元                                                  |
+           | ------------------ | --------------- | ------------------------------------------------------- |
+           | ルーティンID       | routine_id      | ※1                                                      |
+           | ルーティン名       | routine_name    | リクエストパラメータのルーティン名                      |
+           | ルーティン最大日数 | routine_maxday  | リクエストパラメータのルーティン最大日数                |
+           | ユーザID           | user_id         | ログイン時のユーザID                                    |
+           | 更新日時           | update_datetime | 設定しない ※デフォルト値のCURRENT_TIMESTAMPが設定される |
+           | バージョン         | version         | 設定しない ※デフォルト値の0が設定される                 |
+
+           ※1 通番でルーティンIDを発行し、登録を行う。通番は「ID体系:routine00000001～routine99999999」とし、  
+               「routine_mst」テーブルから最大のルーティンIDを取得し、インクリメントした値を格納する。
+
+        5. ルーティン食事リストの料理IDをキーに「cook_mst」テーブルにレコードが存在するか確認する。
+           * レコードが存在しない場合、ロールバックを行い、404エラーとする。
+
+        6. 以下の通りリクエストパラメータのルーティン食事リストの要素数分「routine_eat_tbl」テーブルに追加する。
+
+           | 論理名           | 物理名          | 導出元                                                  |
+           | ---------------- | --------------- | ------------------------------------------------------- |
+           | ルーティン食事ID | routine_eat_id  | ※1                                                      |
+           | ルーティンID     | routine_id      | 2で発行したルーティンID                                 |
+           | 料理ID           | cook_id         | リクエストパラメータの料理ID                            |
+           | ルーティン日数   | routine_day     | リクエストパラメータのルーティン日数                    |
+           | ルーティン時間   | routine_time    | リクエストパラメータのルーティン時間                    |
+           | ユーザID         | user_id         | ログイン時のユーザID                                    |
+           | 更新日時         | update_datetime | 設定しない ※デフォルト値のCURRENT_TIMESTAMPが設定される |
+           | バージョン       | version         | 設定しない ※デフォルト値の0が設定される                 |
+
+           ※1 通番でルーティン食事IDを発行し、登録を行う。通番は「ID体系:routine_eat000000001～routine_eat999999999」とし、  
+               「routine_eat_tbl」テーブルから最大のルーティン食事IDを取得し、インクリメントした値を格納する。
+        7. 2で発行したルーティンIDをレスポンスに設定し、返却する。
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                routineName:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                routineMaxday:
+                  type: number
+                  minimum: 1
+                  maximum: 7
+                routineEatList:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      cookId:
+                        type: string
+                        minLength: 12
+                        maxLength: 12
+                      routineDay:
+                        type: number
+                        maximum: 1
+                        multipleOf: 7
+                      routineTime:
+                        type: number
+                        maximum: 0
+                        multipleOf: 2
+      tags:
+        - ルーティン管理機能（routine）
+      security:
+        - Cookie: []
+    put:
+      summary: API026 - ルーティン編集機能
+      operationId: putRoutine
+      responses:
+        '200':
+          $ref: '#/components/responses/200'
+        '400':
+          $ref: '#/components/responses/400'
+        '404':
+          $ref: '#/components/responses/404'
+        '409':
+          $ref: '#/components/responses/409'
+      description: |
+        ## 概要
+        「routine_mst」, 「routine_eat_tbl」テーブルの更新を行う。
+        ## 処理詳細
+        1. リクエストパラメータチェックを行う。
+           | No  | パラメータ     | 説明                 | 型     | 文字種      | 必須 | デフォルト値 | 最小文字数(最小値) | 最大文字数(最大値) | パターン(正規表現) |
+           | --- | -------------- | -------------------- | ------ | ----------- | ---- | ------------ | ------------------ | ------------------ | ------------------ |
+           | 1   | routineId      | ルーティンID         | String | 半角英数字  | 〇   |              | 15                 | 15                 |                    |
+           | 2   | routineName    | ルーティン名         | String | 半角 / 全角 |      |              | 1                  | 200                |                    |
+           | 3   | routineMaxday  | ルーティン最大日数   | Short  | 半角数字    |      | 7            | 1                  | 7                  |                    |
+           | 4   | version        | バージョン           | Short  | 半角数字    | 〇   | 0            |                    |                    |                    |
+           | 5   | routineEatList | ルーティン食事リスト | List   | -           |      | -            | -                  | -                  |                    |
+           | 6   | - cookId       | 料理ID               | String | 半角英数字  |      |              | 12                 | 12                 |                    |
+           | 7   | - routineDay   | ルーティン日数       | Short  | 半角数字    |      |              | 1                  | 7                  |                    |
+           | 8   | - routineTime  | ルーティン時間       | Short  | 半角数字    |      |              | 0                  | 2                  |                    |
+
+        2. ルーティン食事リストのルーティン日数がリクエストパラメータのルーティン最大日数を超えていないか確認する。
+           * 超えていた場合、400エラーとする。
+        3. リクエストパラメータのルーティンIDをキーにDBにレコードが存在するか確認する。
+           * レコードが存在しない場合、404エラーとする。
+        4. リクエストパラメータの「version」と「routine_mst」テーブルの「version」が一致するか確認する。
+           * 不一致の場合、409エラーとする。
+        5. トランザクションを開始する。
+        6. 以下の通りリクエストパラメータのルーティンIDと「routine_mst」テーブルのルーティンIDが一致するレコードを更新する。
+           | 論理名             | 物理名          | 導出元                                   |
+           | ------------------ | --------------- | ---------------------------------------- |
+           | ルーティンID       | routine_id      | 更新しない                               |
+           | ルーティン名       | routine_name    | リクエストパラメータのルーティン名       |
+           | ルーティン最大日数 | routine_maxday  | リクエストパラメータのルーティン最大日数 |
+           | ユーザID           | user_id         | ログイン時のユーザID                     |
+           | 更新日時           | update_datetime | 現在日時                                 |
+           | バージョン         | version         | リクエストパラメータのバージョン + 1     |
+
+        7. ルーティン食事リストの料理IDをキーに「cook_mst」テーブルにレコードが存在するか確認する。
+           * レコードが存在しない場合、ロールバックを行い、404エラーとする。
+
+        8. リクエストパラメータのルーティンIDと「routine_eat_tbl」テーブルのルーティンIDが一致するレコードを削除する。
+
+        9. 以下の通り「routine_eat_tbl」テーブルに追加する。
+           * 食材リストの要素数分以下の追加を行う。
+           * DBエラーが発生した場合、ロールバックを行い、500エラーとする。
+           | 論理名           | 物理名          | 導出元                                                  |
+           | ---------------- | --------------- | ------------------------------------------------------- |
+           | ルーティン食事ID | routine_eat_id  | ※1                                                      |
+           | ルーティンID     | routine_id      | リクエストパラメータのルーティンID                      |
+           | 料理ID           | cook_id         | ルーティン食事リストの料理ID                            |
+           | ルーティン日数   | routine_day     | ルーティン食事リストのルーティン日数                    |
+           | ルーティン時間   | routine_time    | ルーティン食事リストのルーティン時間                    |
+           | ユーザID         | user_id         | ログイン時のユーザID                                    |
+           | 更新日時         | update_datetime | 設定しない ※デフォルト値のCURRENT_TIMESTAMPが設定される |
+           | バージョン       | version         | 設定しない ※デフォルト値の0が設定される                 |
+
+           ※1 通番でルーティン食事IDを発行し、登録を行う。通番は「ID体系:routine_eat000000001～routine_eat999999999」とし、  
+               「routine_eat_tbl」テーブルから最大のルーティン食事IDを取得し、インクリメントした値を格納する。
+
+        10. トランザクションを終了し、コミットを行う。
+        11. レスポンスを返却する。
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                routineId:
+                  type: string
+                  minLength: 15
+                  maxLength: 15
+                routineName:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                routineMaxday:
+                  type: number
+                  minimum: 1
+                  maximum: 7
+                version:
+                  type: number
+                routineEatList:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      routineEatId:
+                        type: string
+                        minLength: 20
+                        maxLength: 20
+                      cookId:
+                        type: string
+                        minLength: 12
+                        maxLength: 12
+                      routineDay:
+                        type: number
+                        maximum: 1
+                        multipleOf: 7
+                      routineTime:
+                        type: number
+                        maximum: 0
+                        multipleOf: 2
+                      version:
+                        type: number
+              required:
+                - routineId
+                - version
+      tags:
+        - ルーティン管理機能（routine）
+      security:
+        - Cookie: []
+    parameters: []
+  '/routine/{routineId}':
+    get:
+      summary: API024 - ルーティン詳細検索機能
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  resultCode:
+                    type: string
+                  optional:
+                    $ref: '#/components/schemas/Routine'
+        '400':
+          $ref: '#/components/responses/400'
+        '404':
+          $ref: '#/components/responses/404'
+      operationId: getRoutineById
+      description: |
+        ## 概要
+        「routine_mst」テーブルから詳細情報を取得し、返却する。
+        ## 処理詳細 
+        1. リクエストパラメータチェックを行う。
+
+           | No | パラメータ | 説明   | 型     | 文字種       | 必須 | デフォルト値 | 最小文字数(最小値) | 最大文字数(最大値) | パターン(正規表現) |
+           |----|------------|--------|--------|--------------|------|--------------|--------------------|--------------------|--------------------|
+           | 1   | routineId      | ルーティンID | String |  半角英数字  | ○    |         | 15                 | 15                  |                 |
+        2. リクエストパラメータのルーティンIDをキーに「routine_mst」テーブルから詳細情報を取得する。
+           * 「routine_mst」テーブルに該当レコードがなかった場合は404エラーとする。
+        3. 「routine_eat_tbl」テーブルに「cook_mst」テーブルを内部結合し、リクエストパラメータのルーティンIDを検索条件に該当レコードを取得する。
+        4. 「food_mst」テーブルから3で取得した料理IDを検索条件に該当レコードを取得する。
+        5. 2,3,4で取得したレコードをレスポンスに設定し、返却する。
+      tags:
+        - ルーティン管理機能（routine）
+      security:
+        - Cookie: []
+    delete:
+      summary: API027 - ルーティン削除機能
+      operationId: deleteRoutine
+      responses:
+        '200':
+          $ref: '#/components/responses/200'
+        '400':
+          $ref: '#/components/responses/400'
+        '404':
+          $ref: '#/components/responses/404'
+      description: |
+        ## 概要
+        リクエストパラメータのルーティンIDと「routine_mst」テーブルのルーティンIDが一致するレコードを削除する。  
+        ## 処理詳細
+        1. リクエストパラメータチェックを行う。
+
+           | No | パラメータ | 説明       | 型     | 文字種       | 必須 | デフォルト値 | 最小文字数(最小値) | 最大文字数(最大値) | パターン(正規表現) |
+           |----|------------|------------|--------|--------------|------|--------------|--------------------|--------------------|--------------------|
+           | 1   | routineId      | ルーティンID | String |  半角英数字  | ○    |         | 15                 | 15                  |                 |
+        2. リクエストパラメータのルーティンIDと「routine_mst」テーブルのルーティンIDが一致するレコードを削除する。
+           * 削除対象の情報が存在しない場合は404エラーとする。
+        3. レスポンスを返却する。
+      security:
+        - Cookie: []
+      tags:
+        - ルーティン管理機能（routine）
+    parameters:
+      - schema:
+          type: string
+        name: routineId
+        in: path
+        required: true
+  /schedule:
+    get:
+      summary: API028 - スケジュール検索機能
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  resultCode:
+                    type: string
+                  optional:
+                    $ref: '#/components/schemas/ScheduleList'
+        '400':
+          $ref: '#/components/responses/400'
+      operationId: getSchedule
+      description: |
+        ## 概要
+        「schedule_tbl」, 「cook_mst」テーブルから検索を行う。
+        ## 処理詳細
+        1. リクエストパラメータチェックを行う。
+          
+           | パラメータ     | 説明           | 型      | 文字種     | 必須 | デフォルト値 | 最小文字数(最小値) | 最大文字数(最大値) | パターン(正規表現) |
+           |----------------|----------------|---------|------------|------|--------------|--------------------|--------------------|--------------------|
+           | scheduleId         | スケジュールID  | String         | 半角英数字  |     |                  | 18                 | 18          |                |
+           | scheduleDate         | 日付  | LocalDate         | 日付  |     |                  | 10                 | 10          |                |
+           | scheduleTime         | 時間  | Integer         | 半角数字  |     |                  | 0                 | 2          |                |
+           | cookId         | 料理ID  | String         | 半角英数字  |     |                  | 12                 | 12          |                |
+           | orderBy        | ソート項目     | Integer | 半角数字   | -    | 1            | -                  | -                  | [1234] ※1           |
+           | ascOrDesc      | 昇順／降順     | Integer | 半角数字   | -    | 1            | -                  | -                  | [12]               |
+           | limit          | 最大取得数     | Integer | 半角数字   | -    | 100          | (1)                | (2147483647)       | -                  |
+           | offset         | オフセット     | Integer | 半角数字   | -    | 0            | (0)                | (2147483647)       | -                  |
+
+           ※1 ソート項目は、1：スケジュールID, 2：日付, 3：時間, 4：料理ID。
+        2. 「schedule_tbl」テーブルに「cook_mst」テーブルを内部結合し、リクエストパラメータのスケジュールID, 日付, 時間, 料理IDを検索条件に該当レコードを取得する。
+           * リクエストパラメータがnullの項目は検索条件に適用しない。
+        3. 取得した「schedule_tbl」テーブルと「cook_mst」テーブルの該当レコードをレスポンスに設定し、返却する。
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                scheduleId:
+                  type: string
+                  minLength: 18
+                  maxLength: 18
+                scheduleDate:
+                  type: string
+                  minLength: 10
+                  maxLength: 10
+                scheduleTime:
+                  type: number
+                  minimum: 0
+                  maximum: 2
+                cookId:
+                  type: string
+                  minLength: 12
+                  maxLength: 12
+                orderBy:
+                  type: number
+                  enum:
+                    - 1
+                    - 2
+                    - 3
+                    - 4
+                ascOrDesc:
+                  type: number
+                  enum:
+                    - 1
+                    - 2
+                limit:
+                  type: number
+                  minimum: 1
+                  maximum: 2147483647
+                offset:
+                  type: number
+                  maximum: 2147483647
+                  minimum: 0
+        description: ''
+      security:
+        - Cookie: []
+      tags:
+        - スケジュール管理機能（schedule）
+    post:
+      summary: API030 - スケジュール登録機能
+      operationId: postSchedule
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  resultCode:
+                    type: string
+                  scheduleId:
+                    type: string
+        '400':
+          $ref: '#/components/responses/400'
+        '404':
+          $ref: '#/components/responses/404'
+      description: |
+        ## 概要
+        「schedule_tbl」テーブルに登録を行う。
+        ## 処理詳細
+        1. リクエストパラメータチェックを行う。
+          
+           | No  | パラメータ     | 説明                 | 型      | 文字種     | 必須 | デフォルト値      | 最小文字数(最小値) | 最大文字数(最大値) | パターン(正規表現) |
+           | --- | -------------- | -------------------- | ------- | ---------- | ---- | ----------------- | ------------------ | ------------------ | ------------------ |
+           | 1  | scheduleDate        | 日付           | LocalDate   | 日付   | 〇   |                  | 10              | 10              |                 |
+           | 2  | scheduleTime        | 時間           | Short   | 半角数字   | 〇   |                  | 0              | 2              |                 |
+           | 3  | cookIdList  | 料理IDリスト     | List   | -   |    | -                 | -              | -              |                 |
+           | 4  | cookId        | 料理ID           | String   | 半角英数字   | 〇   |                  | 12              | 12              |                 |
+
+        2. 料理IDリストの料理IDをキーに「schedule_tbl」テーブルにレコードが存在するか確認する。
+           * レコードが存在する場合、400エラーとする。
+        3. 料理IDリストの料理IDをキーに「cook_mst」テーブルにレコードが存在するか確認する。
+           * レコードが存在しない場合、404エラーとする。
+        4. 以下の通りリクエストパラメータの料理IDリストの要素数分「schedule_tbl」テーブルに追加する。
+
+           | 論理名               | 物理名          | 導出元                                         |
+           | -------------------- | --------------- | ---------------------------------------------- |
+           | スケジュールID           | schedule_id        | ※1               |
+           | 日付           | schedule_date        | リクエストパラメータの日付               |
+           | 時間           | schedule_time        | リクエストパラメータの時間               |
+           | 料理ID           | cook_id        | リクエストパラメータの料理ID               |
+           | ユーザID           | user_id        | ログイン時のユーザID               |
+           | 更新日時           | update_datetime        | 設定しない ※デフォルト値のCURRENT_TIMESTAMPが設定される            |
+           | バージョン           | version        | 設定しない ※デフォルト値の0が設定される            |
+
+           ※1 通番でスケジュールIDを発行し、登録を行う。通番は「ID体系:schedule0000000001～schedule9999999999」とし、  
+               「schedule_tbl」テーブルから最大のスケジュールIDを取得し、インクリメントした値を格納する。
+        5. 登録したレコードのスケジュールIDをレスポンスに設定し、返却する。
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                scheduleDate:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                scheduleTime:
+                  type: number
+                  minimum: 1
+                  maximum: 7
+                cookIdList:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      cookId:
+                        type: string
+      security:
+        - Cookie: []
+      tags:
+        - スケジュール管理機能（schedule）
+    put:
+      summary: API031 - スケジュール編集機能
+      operationId: putSchedule
+      responses:
+        '200':
+          $ref: '#/components/responses/200'
+        '400':
+          $ref: '#/components/responses/400'
+        '404':
+          $ref: '#/components/responses/404'
+        '409':
+          $ref: '#/components/responses/409'
+      description: |
+        ## 概要
+        「schedule_tbl」テーブルの更新を行う。
+        ## 処理詳細
+        1. リクエストパラメータチェックを行う。
+
+           | No  | パラメータ | 説明       | 型     | 文字種     | 必須 | デフォルト値 | 最小文字数(最小値) | 最大文字数(最大値) | パターン(正規表現) |
+           | --- | ---------- | ---------- | ------ | ---------- | ---- | ------------ | ------------------ | ------------------ | ------------------ |
+           | 1  | scheduleId     | スケジュールID   | String | 半角英数字 | ○    |           | 18                 | 18                 |               |
+           | 2  | scheduleDate     | 日付   | LocalDate | 日付 | -    |           | 10                 | 10                 |               |
+           | 3  | scheduleTime     | 時間   | Integer | 半角数字 | -    |           | 0                 | 2                 |               |
+           | 4  | cookId        | 料理ID           | String   | 半角英数字   | 〇   |                  | 12              | 12              |                 |
+           | 5  | version     | バージョン   | Short | 半角数字 | ○    | 0          |                  |                  |               |
+
+        2. リクエストパラメータのスケジュールIDをキーに「schedule_tbl」テーブルにレコードが存在するか確認する。
+           * レコードが存在しない場合、404エラーとする。
+        3. リクエストパラメータの料理IDをキーに「cook_mst」テーブルにレコードが存在するか確認する。
+           * レコードが存在しない場合、404エラーとする。
+        3. リクエストパラメータの「version」と「schedule_tbl」テーブルの「version」が一致するか確認する。
+           * 不一致の場合、409エラーとする。
+
+        4. 以下の通りリクエストパラメータのスケジュールIDと「schedule_tbl」テーブルのスケジュールIDが一致するレコードを更新する。
+
+           | 論理名               | 物理名          | 導出元                                     |
+           | -------------------- | --------------- | ------------------------------------------ |
+           | スケジュールID           | schedule_id        | 更新しない           |
+           | 日付           | schedule_date        | リクエストパラメータの日付               |
+           | 時間           | schedule_time        | リクエストパラメータの時間               |
+           | 料理ID           | cook_id        | リクエストパラメータの料理ID               |
+           | ユーザID           | user_id        | ログイン時のユーザID               |
+           | 更新日時           | update_datetime        | 現在日時            |
+           | バージョン           | version        | リクエストパラメータのバージョン + 1          |
+        5. レスポンスを返却する。
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                scheduleId:
+                  type: string
+                  minLength: 15
+                  maxLength: 15
+                scheduleDate:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                scheduleTime:
+                  type: number
+                  minimum: 1
+                  maximum: 7
+                cookId:
+                  type: string
+                version:
+                  type: number
+              required:
+                - scheduleId
+                - version
+      security:
+        - Cookie: []
+      tags:
+        - スケジュール管理機能（schedule）
+    parameters: []
+  '/schedule/{scheduleDate}':
+    get:
+      summary: API029 - スケジュール詳細検索機能
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  resultCode:
+                    type: string
+                  optional:
+                    $ref: '#/components/schemas/ScheduleList'
+        '400':
+          $ref: '#/components/responses/400'
+        '404':
+          $ref: '#/components/responses/404'
+      operationId: getScheduleByDate
+      description: |
+        ## 概要
+        「schedule_tbl」テーブルから詳細情報を取得し、返却する。
+        ## 処理詳細 
+        1. リクエストパラメータチェックを行う。
+
+           | No | パラメータ | 説明   | 型     | 文字種       | 必須 | デフォルト値 | 最小文字数(最小値) | 最大文字数(最大値) | パターン(正規表現) |
+           |----|------------|--------|--------|--------------|------|--------------|--------------------|--------------------|--------------------|
+           | 1  | scheduleDate | 日付  | LocalDate         | 日付  | ○   |                  | 10                 | 10          |                |
+
+        2. リクエストパラメータの日付をキーに「schedule_tbl」テーブルに「cook_mst」テーブルを内部結合し、詳細情報を取得する。
+           * 「schedule_tbl」テーブルに該当レコードがなかった場合は404エラーとする。
+        3. 取得した「schedule_tbl」テーブルのレコードをレスポンスに設定し、返却する。
+      security:
+        - Cookie: []
+      tags:
+        - スケジュール管理機能（schedule）
+    parameters:
+      - schema:
+          type: string
+        name: scheduleDate
+        in: path
+        required: true
+    delete:
+      summary: API033 - スケジュール日付削除機能
+      operationId: deleteScheduleByDate
+      responses:
+        '200':
+          $ref: '#/components/responses/200'
+        '400':
+          $ref: '#/components/responses/400'
+        '404':
+          $ref: '#/components/responses/404'
+      description: |
+        ## 概要
+        リクエストパラメータのスケジュールIDと「schedule_tbl」テーブルのスケジュールIDが一致するレコードを削除する。  
+        ## 処理詳細
+        1. リクエストパラメータチェックを行う。
+
+           | No | パラメータ | 説明       | 型     | 文字種       | 必須 | デフォルト値 | 最小文字数(最小値) | 最大文字数(最大値) | パターン(正規表現) |
+           |----|------------|------------|--------|--------------|------|--------------|--------------------|--------------------|--------------------|
+           | 1  | scheduleDate | 日付  | LocalDate         | 日付  | ○   |                  | 10                 | 10          |                |
+        2. リクエストパラメータの日付と「schedule_tbl」テーブルの日付が一致するレコードを削除する。
+           * 削除対象の情報が存在しない場合は404エラーとする。
+        3. レスポンスを返却する。
+      security:
+        - Cookie: []
+      tags:
+        - スケジュール管理機能（schedule）
+  '/schedule/delete/{scheduleId}':
+    delete:
+      summary: API032 - スケジュール削除機能
+      operationId: deleteSchedule
+      responses:
+        '200':
+          $ref: '#/components/responses/200'
+        '400':
+          $ref: '#/components/responses/400'
+        '404':
+          $ref: '#/components/responses/404'
+      description: |
+        ## 概要
+        リクエストパラメータのスケジュールIDと「schedule_tbl」テーブルのスケジュールIDが一致するレコードを削除する。  
+        ## 処理詳細
+        1. リクエストパラメータチェックを行う。
+
+           | No | パラメータ | 説明       | 型     | 文字種       | 必須 | デフォルト値 | 最小文字数(最小値) | 最大文字数(最大値) | パターン(正規表現) |
+           |----|------------|------------|--------|--------------|------|--------------|--------------------|--------------------|--------------------|
+           | 1   | scheduleId      | スケジュールID | String |  半角英数字  | ○    |         | 18                 | 18                  |                 |
+        2. リクエストパラメータのスケジュールIDと「schedule_tbl」テーブルのスケジュールIDが一致するレコードを削除する。
+           * 削除対象の情報が存在しない場合は404エラーとする。
+        3. レスポンスを返却する。
+      security:
+        - Cookie: []
+      tags:
+        - スケジュール管理機能（schedule）
+    parameters:
+      - schema:
+          type: string
+        name: scheduleId
+        in: path
+        required: true
+  '/schedule/routine/{routineId}':
+    post:
+      summary: API035 - ルーティンスケジュール登録機能
+      operationId: postScheduleRoutine
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  resultCode:
+                    type: string
+        '400':
+          $ref: '#/components/responses/400'
+        '404':
+          $ref: '#/components/responses/404'
+      description: |
+        ## 概要
+        「schedule_tbl」テーブルに登録を行う。
+        ## 処理詳細
+        1. リクエストパラメータチェックを行う。
+
+           | No  | パラメータ   | 説明         | 型        | 文字種     | 必須 | デフォルト値 | 最小文字数(最小値) | 最大文字数(最大値) | パターン(正規表現) |
+           | --- | ------------ | ------------ | --------- | ---------- | ---- | ------------ | ------------------ | ------------------ | ------------------ |
+           | 1   | routineId    | ルーティンID | String    | 半角英数字 | 〇   |              | 15                 | 15                 |                    |
+           | 2   | scheduleDate | 日付         | LocalDate | 日付       | 〇   |              | 10                 | 10                 |                    |
+
+        2. 「routine_eat_tbl」テーブルに「cook_mst」テーブルを内部結合し、リクエストパラメータのルーティンIDを検索条件に該当レコードを取得する。
+        3. 2で取得した料理IDとリクエストパラメータの日付に2で取得したルーティン日数を加算した日付、2で取得したルーティン時間を検索条件に「schedule_tbl」テーブルに該当レコードが存在するか確認する。
+           * レコードが存在する場合、400エラーとする。
+        4. 以下の通り2で取得したリストの要素数分「schedule_tbl」テーブルに追加する。
+
+           | 論理名         | 物理名          | 導出元                                                              |
+           | -------------- | --------------- | ------------------------------------------------------------------- |
+           | スケジュールID | schedule_id     | ※1                                                                  |
+           | 日付           | schedule_date   | リクエストパラメータの日付に2で取得したルーティン日数を加算した日付 |
+           | 時間           | schedule_time   | 2で取得した時間                                                     |
+           | 料理ID         | cook_id         | 2で取得した料理ID                                                   |
+           | ユーザID       | user_id         | ログイン時のユーザID                                                |
+           | 更新日時       | update_datetime | 設定しない ※デフォルト値のCURRENT_TIMESTAMPが設定される             |
+           | バージョン     | version         | 設定しない ※デフォルト値の0が設定される                             |
+
+           ※1 通番でスケジュールIDを発行し、登録を行う。通番は「ID体系:schedule0000000001～schedule9999999999」とし、  
+               「schedule_tbl」テーブルから最大のスケジュールIDを取得し、インクリメントした値を格納する。
+        5. 登録したレコードのスケジュールIDをレスポンスに設定し、返却する。
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                routineId:
+                  type: string
+                  minLength: 15
+                  maxLength: 15
+                scheduleDate:
+                  type: string
+                  minLength: 10
+                  maxLength: 10
+      security:
+        - Cookie: []
+      tags:
+        - スケジュール管理機能（schedule）
+    parameters:
+      - schema:
+          type: string
+        name: routineId
+        in: path
+        required: true
+components:
+  securitySchemes:
+    Cookie:
+      name: JSESSIONID
+      type: apiKey
+      in: cookie
+      description: ''
+  responses:
+    '200':
+      description: 正常
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              resultCode:
+                type: string
+                description: '結果コード (000: 正常)'
+                enum:
+                  - '000'
+    '400':
+      description: Bad Request - リクエストパラメータに問題があります
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              resultCode:
+                type: string
+                description: '結果コード (1001: リクエストパラメータエラー)'
+                enum:
+                  - '101'
+              optional:
+                type: object
+                properties:
+                  errorParameterList:
+                    description: 不正パラメータリスト
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          description: パラメータ名
+                          type: string
+                        value:
+                          description: 値
+                          type: string
+                        message:
+                          description: メッセージ
+                          type: string
+    '403':
+      description: Forbidden - アクセス権がありません
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              resultCode:
+                type: string
+                description: '結果コード (1003: 認証情報なし, 1004: 権限エラー)'
+                enum:
+                  - '103'
+                  - '104'
+    '404':
+      description: Not Found - データが存在しません
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              resultCode:
+                type: string
+                description: '結果コード (1005: 正常)'
+                enum:
+                  - '105'
+    '405':
+      description: Method Not Allowed - パスが違います
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              resultCode:
+                type: string
+    '409':
+      description: Conflict - 排他制御が行われました
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              resultCode:
+                type: string
+                description: '結果コード (1007: 正常)'
+                enum:
+                  - '107'
+    '500':
+      description: Internal Server Error - 予期せぬエラーが発生しました
+    403_login:
+      description: Forbidden - 認証情報が不正です
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              resultCode:
+                type: string
+                description: '結果コード (1002: ログイン情報不正)'
+                enum:
+                  - '102'
+  schemas:
+    UserList:
+      type: object
+      properties:
+        total:
+          type: integer
+        userList:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+    User:
+      type: object
+      properties:
+        userId:
+          type: string
+        userName:
+          type: string
+        authority:
+          type: string
+        version:
+          type: integer
+    FoodList:
+      type: object
+      title: FoodList
+      x-internal: false
+      properties:
+        total:
+          type: integer
+        foodList:
+          type: array
+          items:
+            $ref: '#/components/schemas/Food'
+    Food:
+      type: object
+      title: Food
+      x-internal: false
+      properties:
+        foodId:
+          type: string
+        foodName:
+          type: string
+        foodUnit:
+          type: string
+        others1:
+          type: string
+        others2:
+          type: string
+        others3:
+          type: string
+        others4:
+          type: string
+        others5:
+          type: string
+        version:
+          type: number
+    CookList:
+      type: object
+      title: CookList
+      x-internal: false
+      properties:
+        total:
+          type: integer
+        cookList:
+          type: array
+          items:
+            $ref: '#/components/schemas/Cook'
+    Cook:
+      type: object
+      title: Cook
+      x-internal: false
+      properties:
+        cookId:
+          type: string
+        cookName:
+          type: string
+        cookProcess:
+          type: string
+        cookPrice:
+          type: number
+        cookFlg:
+          type: boolean
+        userId:
+          type: string
+        version:
+          type: number
+        foodList:
+          type: array
+          items:
+            $ref: '#/components/schemas/Food'
+    RoutineList:
+      type: object
+      title: RoutineList
+      x-internal: false
+      properties:
+        total:
+          type: integer
+        routineList:
+          type: array
+          items:
+            type: object
+            properties:
+              routineId:
+                type: string
+              routineName:
+                type: string
+              routineMaxday:
+                type: string
+              version:
+                type: string
+    Routine:
+      type: object
+      title: Routine
+      x-internal: false
+      properties:
+        routineId:
+          type: string
+        routineName:
+          type: string
+        routineMaxday:
+          type: number
+        version:
+          type: number
+        routineEatList:
+          type: array
+          items:
+            $ref: '#/components/schemas/RoutineEat'
+    RoutineEatList:
+      type: object
+      title: RoutineEatList
+      x-internal: false
+      properties:
+        total:
+          type: integer
+        routineEatList:
+          type: array
+          items:
+            $ref: '#/components/schemas/RoutineEat'
+    RoutineEat:
+      type: object
+      title: RoutineEat
+      x-internal: false
+      properties:
+        routineEatId:
+          type: string
+        routineId:
+          type: string
+        routineDay:
+          type: number
+        routineTime:
+          type: number
+        cookId:
+          type: string
+        cookName:
+          type: string
+        cookFlg:
+          type: boolean
+        userId:
+          type: string
+        version:
+          type: number
+    Schedule:
+      type: object
+      title: Schedule
+      x-internal: false
+      properties:
+        scheduleId:
+          type: string
+        scheduleDate:
+          type: string
+        routineDay:
+          type: number
+        routineTime:
+          type: number
+        scheduleVersion:
+          type: number
+        cookId:
+          type: string
+        cookName:
+          type: string
+        cookProcess:
+          type: string
+        cookPrice:
+          type: number
+        cook_flg:
+          type: boolean
+        cookVersion:
+          type: number
+    ScheduleList:
+      type: object
+      title: ScheduleList
+      x-internal: false
+      properties:
+        total:
+          type: integer
+        scheduleList:
+          type: array
+          items:
+            $ref: '#/components/schemas/Schedule'
+  parameters: {}
+  requestBodies: {}

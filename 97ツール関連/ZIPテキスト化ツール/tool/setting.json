@@ -1,0 +1,6 @@
+{
+  "setting": "e",
+  "input": "./",
+  "output": "./",
+  "コメント": "inputは対象ディレクトリのパス、outputは出力先パス、エンコード z2tは「e」、デコード t2zは「d」、ファイル名は「in.zip」または「in.txt」"
+}
