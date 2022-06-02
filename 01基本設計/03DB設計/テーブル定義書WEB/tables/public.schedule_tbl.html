@@ -1,0 +1,376 @@
+﻿<!DOCTYPE html>
+<html lang="ja">
+	<head>
+		<meta http-equiv="Content-type" content="text/html; charset=UTF-8">
+		<title>テーブル定義書&#32;2cook</title>
+		<link rel="stylesheet" href="a5m2.css">
+	</head>
+	<body>
+	<table border="1">
+		<caption>テーブル情報</caption>
+			<colgroup>
+				<col width="115">
+				<col width="180">
+				<col width="115">
+				<col width="180">
+			</colgroup>
+			<th>システム名</th>
+			<td>2cook&nbsp;</td>
+			<th>作成者</th>
+			<td>ryome&nbsp;</td>
+		</tr>
+		<tr>
+			<th>サブシステム名</th>
+			<td>&nbsp;</td>
+			<th>作成日</th>
+			<td>2022/05/18&nbsp;</td>
+		</tr>
+		<tr>
+			<th>スキーマ名</th>
+			<td>public&nbsp;</td>
+			<th>更新日</th>
+			<td>&nbsp;</td>
+		</tr>
+		<tr>
+			<th>論理テーブル名</th>
+			<td>スケジュールテーブル&nbsp;</td>
+			<th>RDBMS&nbsp;</th>
+			<td>PostgreSQL 13.5 (Ubuntu 13.5-2.pgdg20.04+1) on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 9.3.0-17ubuntu1~20.04) 9.3.0, 64-bit 13.5&nbsp;</td>
+		</tr>
+		<tr>
+			<th>物理テーブル名</th>
+			<td>schedule_tbl&nbsp;</td>
+			<th>&nbsp;</th>
+			<td>&nbsp;</td>
+		</tr>
+		<tr>
+			<td colspan="4"><b>備考</b><br></td>
+		</tr>
+	</table>
+
+<br>
+<br>
+	<table border="1">
+		<caption>カラム情報</caption>
+			<colgroup>
+				<col width="30">
+				<col width="120">
+				<col width="120">
+				<col width="100">
+				<col width="60">
+				<col width="60">
+				<col width="100">
+			</colgroup>
+		<tr>
+			<th>No.</th>
+			<th>論理名</th>
+			<th>物理名</th>
+			<th>データ型</th>
+			<th>Not Null</th>
+			<th>デフォルト</th>
+			<th>備考</th>
+		</tr>
+		<tr>
+			<td style="text-align:right;">1</td>
+			<td>スケジュールID</td>
+			<td>schedule_id</td>
+			<td>character&#32;varying(18)</td>
+			<td>Yes (PK)</td>
+			<td></td>
+			<td></td>
+		</tr>
+		<tr>
+			<td style="text-align:right;">2</td>
+			<td>ルーティンID</td>
+			<td>routine_id</td>
+			<td>character&#32;varying(15)</td>
+			<td>Yes</td>
+			<td></td>
+			<td></td>
+		</tr>
+		<tr>
+			<td style="text-align:right;">3</td>
+			<td>日付</td>
+			<td>schedule_date</td>
+			<td>date</td>
+			<td>Yes</td>
+			<td></td>
+			<td></td>
+		</tr>
+		<tr>
+			<td style="text-align:right;">4</td>
+			<td>時間</td>
+			<td>schedule_time</td>
+			<td>smallint</td>
+			<td>Yes</td>
+			<td></td>
+			<td></td>
+		</tr>
+		<tr>
+			<td style="text-align:right;">5</td>
+			<td>料理ID</td>
+			<td>cook_id</td>
+			<td>character&#32;varying(12)</td>
+			<td>Yes</td>
+			<td></td>
+			<td></td>
+		</tr>
+		<tr>
+			<td style="text-align:right;">6</td>
+			<td>ユーザID</td>
+			<td>user_id</td>
+			<td>character&#32;varying(12)</td>
+			<td>Yes</td>
+			<td></td>
+			<td></td>
+		</tr>
+		<tr>
+			<td style="text-align:right;">7</td>
+			<td>更新日時</td>
+			<td>update_datetime</td>
+			<td>date</td>
+			<td>Yes</td>
+			<td>CURRENT_TIMESTAMP</td>
+			<td></td>
+		</tr>
+		<tr>
+			<td style="text-align:right;">8</td>
+			<td>バージョン</td>
+			<td>version</td>
+			<td>smallint</td>
+			<td>Yes</td>
+			<td>0</td>
+			<td></td>
+		</tr>
+	</table>
+
+<br>
+<br>
+	<table border="1">
+		<caption>インデックス情報</caption>
+			<colgroup>
+				<col width="30">
+				<col width="170">
+				<col width="230">
+				<col width="60">
+				<col width="100">
+			</colgroup>
+		<tr>
+			<th>No.</th>
+			<th>インデックス名</th>
+			<th>カラムリスト</th>
+			<th>ユニーク</th>
+			<th>備考</th>
+		</tr>
+		<tr>
+			<td style="text-align:right;">1</td>
+			<td>schedule_tbl_pkey</td>
+			<td>schedule_id</td>
+			<td>Yes</td>
+			<td>&nbsp;</td>
+		</tr>
+	</table>
+
+<br>
+<br>
+	<table border="1">
+		<caption>制約情報</caption>
+			<colgroup>
+				<col width="30">
+				<col width="170">
+				<col width="90">
+				<col width="300">
+			</colgroup>
+		<tr>
+			<th>No.</th>
+			<th>制約名</th>
+			<th>種類</th>
+			<th>制約定義</th>
+		</tr>
+		<tr>
+			<td style="text-align:right;">1</td>
+			<td>2200_191934907_1_not_null</td>
+			<td>CHECK</td>
+			<td>schedule_id&#32;IS&#32;NOT&#32;NULL</td>
+		</tr>
+		<tr>
+			<td style="text-align:right;">2</td>
+			<td>2200_191934907_2_not_null</td>
+			<td>CHECK</td>
+			<td>routine_id&#32;IS&#32;NOT&#32;NULL</td>
+		</tr>
+		<tr>
+			<td style="text-align:right;">3</td>
+			<td>2200_191934907_3_not_null</td>
+			<td>CHECK</td>
+			<td>schedule_date&#32;IS&#32;NOT&#32;NULL</td>
+		</tr>
+		<tr>
+			<td style="text-align:right;">4</td>
+			<td>2200_191934907_4_not_null</td>
+			<td>CHECK</td>
+			<td>schedule_time&#32;IS&#32;NOT&#32;NULL</td>
+		</tr>
+		<tr>
+			<td style="text-align:right;">5</td>
+			<td>2200_191934907_5_not_null</td>
+			<td>CHECK</td>
+			<td>cook_id&#32;IS&#32;NOT&#32;NULL</td>
+		</tr>
+		<tr>
+			<td style="text-align:right;">6</td>
+			<td>2200_191934907_6_not_null</td>
+			<td>CHECK</td>
+			<td>user_id&#32;IS&#32;NOT&#32;NULL</td>
+		</tr>
+		<tr>
+			<td style="text-align:right;">7</td>
+			<td>2200_191934907_7_not_null</td>
+			<td>CHECK</td>
+			<td>update_datetime&#32;IS&#32;NOT&#32;NULL</td>
+		</tr>
+		<tr>
+			<td style="text-align:right;">8</td>
+			<td>2200_191934907_8_not_null</td>
+			<td>CHECK</td>
+			<td>version&#32;IS&#32;NOT&#32;NULL</td>
+		</tr>
+		<tr>
+			<td style="text-align:right;">9</td>
+			<td>schedule_tbl_pkey</td>
+			<td>PRIMARY&#32;KEY</td>
+			<td>schedule_id</td>
+		</tr>
+	</table>
+
+<br>
+<br>
+	<table border="1">
+		<caption>外部キー情報</caption>
+			<colgroup>
+				<col width="30">
+				<col width="120">
+				<col width="160">
+				<col width="120">
+				<col width="160">
+			</colgroup>
+			<th>No.</th>
+			<th>外部キー名</th>
+			<th>カラムリスト</th>
+			<th>参照先</th>
+			<th>参照先カラムリスト</th>
+		</tr>
+		<tr>
+			<td style="text-align:right;">1</td>
+			<td>schedule_tbl_cook_id_fkey</td>
+			<td>cook_id</td>
+			<td>public.cook_mst</td>
+			<td>cook_id</td>
+		</tr>
+		<tr>
+			<td style="text-align:right;">2</td>
+			<td>schedule_tbl_user_id_fkey</td>
+			<td>user_id</td>
+			<td>public.cook_user_mst</td>
+			<td>user_id</td>
+		</tr>
+	</table>
+
+<br>
+<br>
+	<table border="1">
+		<caption>外部キー情報(PK側)</caption>
+			<colgroup>
+				<col width="30">
+				<col width="120">
+				<col width="160">
+				<col width="120">
+				<col width="160">
+			</colgroup>
+		<tr>
+			<th>No.</th>
+			<th>外部キー名</th>
+			<th>カラムリスト</th>
+			<th>参照元</th>
+			<th>参照元カラムリスト</th>
+		</tr>
+	</table>
+
+<br>
+<br>
+	<table border="1">
+		<caption>トリガー情報</caption>
+			<colgroup>
+				<col width="30">
+				<col width="120">
+				<col width="160">
+				<col width="120">
+				<col width="160">
+			</colgroup>
+			<th>No.</th>
+			<th>トリガー名</th>
+			<th>イベント</th>
+			<th>タイミング</th>
+			<th>条件</th>
+		</tr>
+	</table>
+
+<br>
+<br>
+	<table border="1">
+		<caption>RDBMS固有の情報</caption>
+			<colgroup>
+				<col width="30">
+				<col width="220">
+				<col width="340">
+			</colgroup>
+		<tr>
+			<th>No.</th>
+			<th>プロパティ名</th>
+			<th>プロパティ値</th>
+		</tr>
+		<tr>
+			<td style="text-align:right;">1</td>
+			<td>schemaname</td>
+			<td>public</td>
+		</tr>
+		<tr>
+			<td style="text-align:right;">2</td>
+			<td>tablename</td>
+			<td>schedule_tbl</td>
+		</tr>
+		<tr>
+			<td style="text-align:right;">3</td>
+			<td>tableowner</td>
+			<td>fvmchjms</td>
+		</tr>
+		<tr>
+			<td style="text-align:right;">4</td>
+			<td>tablespace</td>
+			<td></td>
+		</tr>
+		<tr>
+			<td style="text-align:right;">5</td>
+			<td>hasindexes</td>
+			<td>True</td>
+		</tr>
+		<tr>
+			<td style="text-align:right;">6</td>
+			<td>hasrules</td>
+			<td>False</td>
+		</tr>
+		<tr>
+			<td style="text-align:right;">7</td>
+			<td>hastriggers</td>
+			<td>True</td>
+		</tr>
+		<tr>
+			<td style="text-align:right;">8</td>
+			<td>rowsecurity</td>
+			<td>False</td>
+		</tr>
+	</table>
+
+
+	</body>
+</html>

@@ -1,0 +1,12 @@
+No.,論理カラム名,物理カラム名,KEY,table,NN,UNSIGNED,データ型(サイズ),初期値,補足,検索対象,最小値,最大値,パターン(正規表現),文字種,型,変数名
+1,ユーザID,user_id,PK,,〇,,VARCHAR,,ID体系:user00000001~user99999999,〇,12,12,,半角英数字,String,userId
+2,パスワード,password,,,〇,,VARCHAR,,,,1,100,,半角英数字,String,password
+3,ユーザ名,user_name,,,〇,,VARCHAR,,,,1,100,,半角英数字,String,userName
+4,秘密の質問ID,secret_id,,,〇,,VARCHAR,,汎用マスタから取得,,7,7,,半角英数字,String,secretId
+5,秘密の答え,secret_answer,,,〇,,VARCHAR,,,,1,200,,半角英数字,String,secretAnswer
+6,パスワード間違え回数,error_password,,,,,SMALLINT,,10回以上間違えでアカウントをロック,,0,10,,半角数字,Byte,errorPassword
+7,アカウントロック,lock,,,,,BOOLEAN,,,〇,0,1,,半角数字,Boolean,lock
+8,権限,authority,,,〇,,SMALLINT,0,0:ユーザ / 1:管理者,〇,,,"[0,1]",半角数字,Byte,authority
+9,更新日時,update_datetime,,,〇,,TIMESTAMP,CURRENT_TIMESTAMP,"レコードが更新された日時を格納
+YYYY-MM-DD hh:mm:ss",,,,,日付,Date,updateDatetime
+10,バージョン,version,,,〇,〇,SMALLINT,0,,,,,,半角数字,Short,version

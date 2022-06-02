@@ -1,0 +1,8 @@
+{
+  "setting": "s",
+  "encoding": "shift_jis",
+  "byte": "51380224",
+  "input": "./input/",
+  "output": "./output/",
+  "コメント": "settingには「分割：s」または「結合:j」、byteには分割したいバイト数を入力、inputは対象ディレクトリのパス、outputは出力先パス、ファイル名は「input.txt」、初期値はencoding：「shift_jis」、byte：「51380224」（49MB）、input：「./input/」、output：「./output/」"
+}

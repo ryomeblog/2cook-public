@@ -1,0 +1,13 @@
+No.,論理カラム名,物理カラム名,KEY,table,NN,UNSIGNED,データ型(サイズ),初期値,補足,検索対象,最小値,最大値,,文字種,型,変数名
+1,食材ID,food_id,PK,,〇,,VARCHAR,,ID体系:food00000001～food99999999,〇,12,12,,半角英数字,String,foodId
+2,食材名,food_name,,,〇,,VARCHAR,,,〇,1,100,,半角 / 全角,String,foodName
+3,単位,food_unit,,,〇,,VARCHAR,,汎用マスタから取得,〇,7,7,,半角英数字,String,foodUnit
+4,その他1,others1,,,,,VARCHAR,,100%の状態,,1,100,,半角 / 全角,String,others1
+5,その他2,others2,,,,,VARCHAR,,50%の状態,,1,100,,半角 / 全角,String,others2
+6,その他3,others3,,,,,VARCHAR,,25%の状態,,1,100,,半角 / 全角,String,others3
+7,その他4,others4,,,,,VARCHAR,,12.5%の状態,,1,100,,半角 / 全角,String,others4
+8,その他5,others5,,,,,VARCHAR,,6.25%の状態,,1,100,,半角 / 全角,String,others5
+9,ユーザID,user_id,FK,cook_user_mst,〇,,VARCHAR,,ID体系:user00000001~user99999999,○,12,12,,半角英数字,String,userId
+10,更新日時,update_datetime,,,〇,,TIMESTAMP,CURRENT_TIMESTAMP,"レコードが更新された日時を格納
+YYYY-MM-DD hh:mm:ss",,,,,日付,Date,updateDatetime
+11,バージョン,version,,,〇,〇,SMALLINT,0,,,,,,半角数字,Short,version

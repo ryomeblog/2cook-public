@@ -1,0 +1,10 @@
+No.,論理カラム名,物理カラム名,KEY,table,NN,UNSIGNED,データ型(サイズ),初期値,補足,検索対象,最小値,最大値,,文字種,型,変数名
+1,ルーティン食事ID,routine_eat_id,PK,,〇,,VARCHAR,,ID体系:routine_eat000000001～routine_eat999999999,〇,20,20,,半角英数字,String,routineEatId
+2,ルーティンID,routine_id,FK,routine_tbl,〇,,VARCHAR,,ID体系:routine00000001～routine99999999,〇,15,15,,半角 / 全角,String,routineId
+3,料理ID,cook_id,FK,cook_mst,〇,,VARCHAR,,ID体系:cook00000001～cook99999999,〇,12,12,,半角英数字,String,cookId
+4,ルーティン日数,routine_day,,,〇,,SMALLINT,,１～７日目,〇,1,7,,半角数字,Short,routineDay
+5,ルーティン時間,routine_time,,,〇,,SMALLINT,,0：朝、1：昼、2：夜,〇,0,2,,半角数字,Short,routineTime
+6,ユーザID,user_id,FK,cook_user_mst,〇,,VARCHAR,,ID体系:user00000001~user99999999,〇,12,12,,半角数字,Short,userId
+6,更新日時,update_datetime,,,〇,,TIMESTAMP,CURRENT_TIMESTAMP,"レコードが更新された日時を格納
+YYYY-MM-DD hh:mm:ss",,,,,日付,Date,updateDatetime
+7,バージョン,version,,,〇,〇,SMALLINT,0,,,,,,半角数字,Short,version

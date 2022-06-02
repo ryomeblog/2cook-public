@@ -1,0 +1,11 @@
+No.,論理カラム名,物理カラム名,KEY,table,NN,UNSIGNED,データ型(サイズ),初期値,補足,検索対象,最小値,最大値,,文字種,型,変数名
+1,料理ID,cook_id,PK,,〇,,VARCHAR,,ID体系:cook00000001～cook99999999,〇,12,12,,半角英数字,String,cookId
+2,料理名,cook_name,,,〇,,VARCHAR,,,〇,1,200,,半角 / 全角,String,cookName
+3,手順,cook_process,,,〇,,VARCHAR,,,,1,4000,,半角 / 全角,String,cookProcess
+4,金額,cook_price,,,〇,〇,BIGINT,0,,〇,,,,半角数字,Long,cookPrice
+5,動画URL,cook_movie,,,,,VARCHAR,,,,0,4000,,半角 / 全角,String,cookMovie
+6,その他URL,cook_url,,,,,VARCHAR,,,,0,4000,,半角 / 全角,String,cookUrl
+7,ユーザID,user_id,FK,cook_user_mst,〇,,VARCHAR,,ID体系:user00000001~user99999999,○,12,12,,半角英数字,String,userId
+8,更新日時,update_datetime,,,〇,,TIMESTAMP,CURRENT_TIMESTAMP,"レコードが更新された日時を格納
+YYYY-MM-DD hh:mm:ss",,,,,日付,Date,updateDatetime
+9,バージョン,version,,,〇,〇,SMALLINT,0,,,,,,半角数字,Short,version
